@@ -1,0 +1,30 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Data — raw and processed (too large for GitHub)
+data/raw/
+data/processed/
+data/synthetic/
+data/rag_docs/chunks.json
+
+# Models — too large for GitHub
+models/saved/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Test files
+test_api_key.py
