@@ -1,0 +1,187 @@
+@prefix : <http://sy1-gov.local/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---------------------------------------------------------------------------
+# Ontology declaration
+# ---------------------------------------------------------------------------
+
+<http://sy1-gov.local/ontology>
+    a owl:Ontology ;
+    rdfs:label "SY1-Gov Fault Knowledge Ontology" ;
+    rdfs:comment "OWL ontology modelling fault types, symptoms, node types, and SOPs for the SY1-Gov district heating system." .
+
+# ---------------------------------------------------------------------------
+# Classes
+# ---------------------------------------------------------------------------
+
+:FaultType     a owl:Class ; rdfs:label "Fault Type" .
+:Symptom       a owl:Class ; rdfs:label "Symptom" .
+:NodeType      a owl:Class ; rdfs:label "Grid Node Type" .
+:SOP           a owl:Class ; rdfs:label "Standard Operating Procedure" .
+:TemperatureCondition a owl:Class ; rdfs:label "Ambient Temperature Condition" .
+
+# ---------------------------------------------------------------------------
+# Object properties
+# ---------------------------------------------------------------------------
+
+:hasSymptom     a owl:ObjectProperty ; rdfs:domain :FaultType ; rdfs:range :Symptom .
+:isLikelyWhen   a owl:ObjectProperty ; rdfs:domain :FaultType ; rdfs:range :TemperatureCondition .
+:triggersSOPFor a owl:ObjectProperty ; rdfs:domain :FaultType ; rdfs:range :SOP .
+:affectsNodeType a owl:ObjectProperty ; rdfs:domain :FaultType ; rdfs:range :NodeType .
+
+# ---------------------------------------------------------------------------
+# Datatype properties
+# ---------------------------------------------------------------------------
+
+:deviationMinPct  a owl:DatatypeProperty ; rdfs:range xsd:float .
+:deviationMaxPct  a owl:DatatypeProperty ; rdfs:range xsd:float .
+:onsetPattern     a owl:DatatypeProperty ; rdfs:range xsd:string .
+:severityRangeMin a owl:DatatypeProperty ; rdfs:range xsd:float .
+:severityRangeMax a owl:DatatypeProperty ; rdfs:range xsd:float .
+:tempThresholdC   a owl:DatatypeProperty ; rdfs:range xsd:float .
+
+# ---------------------------------------------------------------------------
+# Symptoms
+# ---------------------------------------------------------------------------
+
+:DemandSpike     a :Symptom ; rdfs:label "Acute demand spike (>= 40%)" .
+:ResidualDraw    a :Symptom ; rdfs:label "Residual cooling draw during winter shutdown" .
+:GradualDrift    a :Symptom ; rdfs:label "Gradual demand drift over 12+ hours" .
+:LowDeltaT       a :Symptom ; rdfs:label "Low differential temperature across heat exchanger" .
+:PressureDrop    a :Symptom ; rdfs:label "Pressure drop in pipe network" .
+:SensorOffset    a :Symptom ; rdfs:label "Constant sensor offset vs. neighbouring nodes" .
+:InverseDiurnal  a :Symptom ; rdfs:label "Demand pattern inverse of expected diurnal cycle" .
+:NightSpike      a :Symptom ; rdfs:label "Overnight demand spike during low-occupancy window" .
+
+# ---------------------------------------------------------------------------
+# Node types
+# ---------------------------------------------------------------------------
+
+:Substation      a :NodeType ; rdfs:label "Substation" .
+:BuildingCluster a :NodeType ; rdfs:label "Building Cluster" .
+:PipeSegment     a :NodeType ; rdfs:label "Pipe Segment" .
+:DataCentre      a :NodeType ; rdfs:label "Data Centre" .
+:PumpStation     a :NodeType ; rdfs:label "Pump Station" .
+
+# ---------------------------------------------------------------------------
+# Temperature conditions
+# ---------------------------------------------------------------------------
+
+:BelowMinus5C    a :TemperatureCondition ; rdfs:label "Below -5 degrees C" ; :tempThresholdC "-5.0"^^xsd:float .
+:BelowMinus15C   a :TemperatureCondition ; rdfs:label "Below -15 degrees C" ; :tempThresholdC "-15.0"^^xsd:float .
+:BelowPlus12C    a :TemperatureCondition ; rdfs:label "Below +12 degrees C (winter shutdown active)" ; :tempThresholdC "12.0"^^xsd:float .
+:AbovePlus25C    a :TemperatureCondition ; rdfs:label "Above +25 degrees C" ; :tempThresholdC "25.0"^^xsd:float .
+:AnyTemperature  a :TemperatureCondition ; rdfs:label "Temperature-independent" .
+
+# ---------------------------------------------------------------------------
+# SOPs
+# ---------------------------------------------------------------------------
+
+:AnomalyResponseSOP     a :SOP ; rdfs:label "SOP: Anomaly Response Protocol" .
+:WinterShutdownSOP      a :SOP ; rdfs:label "SOP: Cooling System Winter Shutdown" .
+:DataCentreDumpSOP      a :SOP ; rdfs:label "SOP: Data Centre Thermal Dump Protocol" .
+:SpringThawSOP          a :SOP ; rdfs:label "SOP: Spring Thaw Inspection Protocol" .
+:GNNInterpretationSOP   a :SOP ; rdfs:label "SOP: GraphSAGE Fault Localisation Interpretation" .
+
+# ---------------------------------------------------------------------------
+# Fault types
+# ---------------------------------------------------------------------------
+
+:PipeBurst
+    a :FaultType ;
+    rdfs:label "Pipe Burst" ;
+    :hasSymptom :DemandSpike ;
+    :hasSymptom :PressureDrop ;
+    :hasSymptom :NightSpike ;
+    :isLikelyWhen :BelowMinus5C ;
+    :triggersSOPFor :AnomalyResponseSOP ;
+    :affectsNodeType :Substation ;
+    :affectsNodeType :PipeSegment ;
+    :deviationMinPct "40.0"^^xsd:float ;
+    :deviationMaxPct "80.0"^^xsd:float ;
+    :onsetPattern "acute"^^xsd:string .
+
+:SupplyFailure
+    a :FaultType ;
+    rdfs:label "Supply Failure" ;
+    :hasSymptom :DemandSpike ;
+    :isLikelyWhen :AnyTemperature ;
+    :triggersSOPFor :AnomalyResponseSOP ;
+    :affectsNodeType :Substation ;
+    :affectsNodeType :PumpStation ;
+    :deviationMinPct "20.0"^^xsd:float ;
+    :deviationMaxPct "60.0"^^xsd:float ;
+    :onsetPattern "rapid"^^xsd:string .
+
+:InsulationDegradation
+    a :FaultType ;
+    rdfs:label "Insulation Degradation" ;
+    :hasSymptom :GradualDrift ;
+    :isLikelyWhen :BelowMinus5C ;
+    :triggersSOPFor :AnomalyResponseSOP ;
+    :affectsNodeType :PipeSegment ;
+    :deviationMinPct "5.0"^^xsd:float ;
+    :deviationMaxPct "25.0"^^xsd:float ;
+    :onsetPattern "gradual_12h_plus"^^xsd:string .
+
+:StuckValve
+    a :FaultType ;
+    rdfs:label "Stuck Valve" ;
+    :hasSymptom :ResidualDraw ;
+    :isLikelyWhen :BelowPlus12C ;
+    :triggersSOPFor :WinterShutdownSOP ;
+    :affectsNodeType :Substation ;
+    :deviationMinPct "0.0"^^xsd:float ;
+    :deviationMaxPct "5.0"^^xsd:float ;
+    :onsetPattern "low_residual"^^xsd:string .
+
+:SensorDrift
+    a :FaultType ;
+    rdfs:label "Sensor Drift" ;
+    :hasSymptom :SensorOffset ;
+    :isLikelyWhen :AnyTemperature ;
+    :triggersSOPFor :GNNInterpretationSOP ;
+    :affectsNodeType :Substation ;
+    :affectsNodeType :BuildingCluster ;
+    :deviationMinPct "2.0"^^xsd:float ;
+    :deviationMaxPct "15.0"^^xsd:float ;
+    :onsetPattern "constant_offset"^^xsd:string .
+
+:HeatExchangerFouling
+    a :FaultType ;
+    rdfs:label "Heat Exchanger Fouling" ;
+    :hasSymptom :LowDeltaT ;
+    :hasSymptom :GradualDrift ;
+    :isLikelyWhen :AnyTemperature ;
+    :triggersSOPFor :AnomalyResponseSOP ;
+    :affectsNodeType :Substation ;
+    :deviationMinPct "5.0"^^xsd:float ;
+    :deviationMaxPct "30.0"^^xsd:float ;
+    :onsetPattern "gradual"^^xsd:string .
+
+:DataCentreThermalDump
+    a :FaultType ;
+    rdfs:label "Data Centre Thermal Dump" ;
+    :hasSymptom :DemandSpike ;
+    :hasSymptom :InverseDiurnal ;
+    :isLikelyWhen :AnyTemperature ;
+    :triggersSOPFor :DataCentreDumpSOP ;
+    :affectsNodeType :DataCentre ;
+    :deviationMinPct "10.0"^^xsd:float ;
+    :deviationMaxPct "50.0"^^xsd:float ;
+    :onsetPattern "inverse_diurnal"^^xsd:string .
+
+:SpringThawPipeStress
+    a :FaultType ;
+    rdfs:label "Spring Thaw Pipe Stress" ;
+    :hasSymptom :PressureDrop ;
+    :hasSymptom :GradualDrift ;
+    :isLikelyWhen :AbovePlus25C ;
+    :triggersSOPFor :SpringThawSOP ;
+    :affectsNodeType :PipeSegment ;
+    :deviationMinPct "5.0"^^xsd:float ;
+    :deviationMaxPct "20.0"^^xsd:float ;
+    :onsetPattern "seasonal"^^xsd:string .

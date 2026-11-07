@@ -1,0 +1,50 @@
+name: CI - Smoke Tests (PR)
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+  LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+
+jobs:
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Lint
+        run: |
+          black --check src/ tests/
+          flake8 src/ tests/ --max-line-length=100
+          mypy src/ --ignore-missing-imports
+
+      - name: Policy unit tests
+        run: pytest tests/test_policy.py tests/test_contracts.py tests/test_audit.py -v --tb=short
+
+      - name: Trajectory smoke set (5 cases)
+        run: pytest src/evals/trajectories/test_trajectories.py -k "smoke" -v --tb=short
+
+      - name: Injection smoke set (5 cases)
+        run: pytest src/evals/injection/test_injection.py -k "smoke" -v --tb=short
+
+      - name: Coverage report
+        run: pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=70

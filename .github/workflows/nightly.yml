@@ -1,0 +1,64 @@
+name: Nightly - Full Eval Suite
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC nightly
+  workflow_dispatch:        # allow manual trigger
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+  LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+
+jobs:
+  full-eval:
+    name: Full Evaluation Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Set up Node.js (for promptfoo)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Install promptfoo
+        run: npm install -g promptfoo
+
+      - name: Full trajectory eval suite (k=5 runs each)
+        run: pytest src/evals/trajectories/test_trajectories.py -v --tb=short --runs=5
+
+      - name: Full injection suite (25+ cases via promptfoo)
+        run: promptfoo eval --config src/evals/injection/attack_suite.yaml --output injection_results.json
+
+      - name: Ragas outcome quality eval
+        run: pytest src/evals/test_ragas_quality.py -v --tb=short
+
+      - name: LLM-as-judge calibration check
+        run: pytest src/evals/test_judge_calibration.py -v --tb=short
+
+      - name: Quality gate check
+        run: python src/evals/quality_gate.py --results injection_results.json
+
+      - name: Upload eval results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: |
+            injection_results.json
+            eval_report.json
