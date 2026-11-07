@@ -10,3 +10,8 @@ requires-python = ">=3.10"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*", "tests*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "live_api: marks tests that call live LLM APIs (skipped unless ANTHROPIC_API_KEY is set)",
+]
