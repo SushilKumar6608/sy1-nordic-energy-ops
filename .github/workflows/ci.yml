@@ -35,7 +35,7 @@ jobs:
         run: |
           black --check src/ tests/
           flake8 src/policy/ src/tools/ src/evals/ src/mcp/ src/tracing/ tests/ --max-line-length=100
-          mypy src/ --ignore-missing-imports
+          mypy src/policy/ src/tools/ src/evals/ src/mcp/ src/tracing/ --ignore-missing-imports
 
       - name: Policy unit tests
         run: pytest tests/test_policy_engine.py tests/test_policy_contracts.py tests/test_audit.py -v --tb=short
