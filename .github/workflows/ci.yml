@@ -34,7 +34,7 @@ jobs:
       - name: Lint
         run: |
           black --check src/ tests/
-          flake8 src/ tests/ --max-line-length=100
+          flake8 src/policy/ src/tools/ src/evals/ src/mcp/ src/tracing/ tests/ --max-line-length=100
           mypy src/ --ignore-missing-imports
 
       - name: Policy unit tests
