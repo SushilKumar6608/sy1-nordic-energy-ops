@@ -5,16 +5,15 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 
-RAG_DOCS_DIR  = os.path.join(os.path.dirname(__file__), "..", "..", "data", "rag_docs")
-MODELS_DIR    = os.path.join(os.path.dirname(__file__), "..", "..", "models", "saved")
+RAG_DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "rag_docs")
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "models", "saved")
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-CHUNK_SIZE      = 400
-CHUNK_OVERLAP   = 80
+CHUNK_SIZE = 400
+CHUNK_OVERLAP = 80
 
 
 DOCUMENTS = [
-
     # --- Fault type descriptions ---
     {
         "title": "Fault Type: Pipe Burst",
@@ -43,9 +42,8 @@ Operator response procedure:
 4. Notify affected building clusters of supply interruption.
 5. Initiate emergency repair protocol per Svensk Fjärrvärme standard SR 2021:04.
 Recovery time estimate: 4-8 hours for temporary repair, 24-72 hours for permanent.
-"""
+""",
     },
-
     {
         "title": "Fault Type: Supply Failure",
         "category": "fault_types",
@@ -74,9 +72,8 @@ Operator response procedure:
 5. Notify grid control centre and escalate to plant operations manager.
 6. Issue customer communication if interruption exceeds 30 minutes.
 Recovery time estimate: 15 minutes (pump restart) to 4 hours (boiler restart).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Insulation Degradation",
         "category": "fault_types",
@@ -108,9 +105,8 @@ Operator response procedure:
 4. Schedule pipe inspection using thermal imaging camera.
 5. Log for planned maintenance if not critical — prioritise segments >30 years old.
 Recovery time estimate: planned replacement 2-4 weeks, emergency patch 24-48h.
-"""
+""",
     },
-
     {
         "title": "Fault Type: Stuck Valve",
         "category": "fault_types",
@@ -142,9 +138,8 @@ Operator response procedure:
 4. If remote closure fails, perform manual override at the valve cabinet.
 5. Log valve serial number and schedule replacement if actuator is damaged.
 Recovery time estimate: 30 minutes (remote reset) to 4 hours (manual replacement).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Sensor Drift",
         "category": "fault_types",
@@ -176,9 +171,8 @@ Operator response procedure:
 4. Perform meter re-calibration using reference standard per EN 1434.
 5. If calibration fails, replace meter and update meter data in SCADA.
 Recovery time estimate: 1 hour (recalibration) to 4 hours (meter replacement).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Anti-Cyclical Demand Pulse",
         "category": "fault_types",
@@ -206,9 +200,8 @@ Operator response procedure:
 4. Review SCADA event log for unauthorised control commands.
 5. File incident report and notify operations manager within 1 hour.
 Recovery time estimate: 15-30 minutes (pump shutdown), 2-4 hours (root cause).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Heat Exchanger Fouling",
         "category": "fault_types",
@@ -251,9 +244,8 @@ Operator response procedure:
 
 Recovery time: chemical cleaning 4-8 hours, plate replacement 1-2 days.
 PHE cleaning should be performed annually in high-hardness water areas.
-"""
+""",
     },
-
     {
         "title": "Fault Type: Data Centre Thermal Dump",
         "category": "fault_types",
@@ -305,9 +297,8 @@ Operator response procedure:
 5. Monitor downstream substation PHE temperatures for stress indicators.
 6. Log event and notify Svenska Kraftnät within 2 hours per regulatory requirement.
 Recovery time: 1-4 hours (data centre cooling restart), 2-6 hours (loop stabilisation).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Inverse Diurnal Sensor Drift",
         "category": "fault_types",
@@ -356,9 +347,8 @@ Operator response procedure:
    replacement per EN 1434 calibration protocol.
 6. Flag meter serial number for accelerated replacement schedule.
 Recovery time: 30 minutes (remote recalibration) to 4 hours (physical replacement).
-"""
+""",
     },
-
     {
         "title": "Fault Type: Spring Thaw Pipe Stress",
         "category": "fault_types",
@@ -405,9 +395,8 @@ Operator response procedure:
 5. Increase system pressure monitoring frequency during thaw period.
 6. Pre-position repair clamps and materials for affected pipe diameter range.
 Recovery time: temporary clamp repair 2-4 hours per segment, permanent 1-3 days.
-"""
+""",
     },
-
     {
         "title": "Fault Type: Control System Demand Response Misfire",
         "category": "fault_types",
@@ -447,9 +436,8 @@ Operator response procedure:
 5. Lock out the demand response automation system pending investigation.
 6. Notify control system vendor and file incident report with cause code DR-MISFIRE.
 Recovery time: 5-15 minutes (manual override), 1-2 days (root cause investigation).
-"""
+""",
     },
-
     # --- City-specific operational notes ---
     {
         "title": "City Operations: Stockholm Grid",
@@ -478,9 +466,8 @@ Known vulnerabilities:
 
 Escalation contacts: Stockholm Grid Control +46 8 XXX XXXX (24/7).
 Data Centre Emergency Line: +46 8 XXX YYYY (24/7 — thermal dump events only).
-"""
+""",
     },
-
     {
         "title": "City Operations: Kiruna Grid",
         "category": "city_operations",
@@ -508,9 +495,8 @@ Known vulnerabilities:
 - Spring thaw period (April-May) requires daily pressure monitoring across all nodes.
 
 Escalation contacts: Kiruna Grid Control +46 980 XXX XXX (24/7).
-"""
+""",
     },
-
     {
         "title": "City Operations: Gothenburg Grid",
         "category": "city_operations",
@@ -536,9 +522,8 @@ Known vulnerabilities:
   Annual chemical cleaning recommended for all substations.
 
 Escalation contacts: Gothenburg Grid Control +46 31 XXX XXXX (24/7).
-"""
+""",
     },
-
     {
         "title": "City Operations: Umeå Grid",
         "category": "city_operations",
@@ -563,9 +548,8 @@ Known vulnerabilities:
 - Freeze-thaw cycling is severe — spring thaw in April-May is highest risk.
 
 Escalation contacts: Umeå Grid Control +46 90 XXX XXXX (24/7).
-"""
+""",
     },
-
     # --- Standard operating procedures ---
     {
         "title": "SOP: Anomaly Response Protocol",
@@ -604,9 +588,8 @@ ESCALATION:
 If anomaly persists >4 hours despite Level 2 response: escalate to Level 3.
 If grid stability is at risk: contact Swedish grid authority (Svenska Kraftnät).
 Thermal dump events: notify Svenska Kraftnät within 2 hours per regulation.
-"""
+""",
     },
-
     {
         "title": "SOP: Cooling System Winter Shutdown",
         "category": "procedures",
@@ -638,9 +621,8 @@ until proven otherwise. Response per Fault Type: Stuck Valve procedure.
 
 RESTART PROCEDURE:
 Spring restart (typically April-May) — reverse the above in order 5 to 1.
-"""
+""",
     },
-
     {
         "title": "SOP: GraphSAGE Fault Localisation Interpretation",
         "category": "procedures",
@@ -681,9 +663,8 @@ IMPORTANT LIMITATIONS:
 DOCUMENTATION:
 After each field inspection, record actual fault location and compare with GNN
 prediction to support ongoing model improvement.
-"""
+""",
     },
-
     {
         "title": "SOP: Data Centre Thermal Dump Protocol",
         "category": "procedures",
@@ -725,9 +706,8 @@ RETURN LINE TEMPERATURE LIMITS (per SR 2018:02):
 REGULATORY NOTIFICATION:
 Notify Svenska Kraftnät grid operations within 2 hours of any Level 4 event.
 File full incident report within 24 hours including thermal dump volume (MWh).
-"""
+""",
     },
-
     {
         "title": "SOP: Spring Thaw Inspection Protocol",
         "category": "procedures",
@@ -763,9 +743,8 @@ POST-THAW REVIEW:
 9. Document all segments showing anomalous behaviour during thaw.
 10. Update pipe replacement priority list based on thaw season performance.
 11. File annual spring thaw report with Energimarknadsinspektionen.
-"""
+""",
     },
-
     # --- Equipment reference ---
     {
         "title": "Equipment: Heat Exchangers and Substations",
@@ -807,9 +786,8 @@ PERFORMANCE BENCHMARKS:
 - Minimum PHE efficiency: 85% heat transfer at rated capacity.
 - Maximum return temperature: 55°C at design outdoor temperature.
 - Maximum pressure drop across PHE: 0.3 bar at rated flow.
-"""
+""",
     },
-
     {
         "title": "Equipment: Pipe Network Specifications",
         "category": "equipment",
@@ -847,9 +825,8 @@ For pipe bursts requiring emergency repair outside business hours, contact
 the on-call pipe repair contractor listed in the emergency contact register.
 Temporary clamp repair is acceptable for pipes <200mm diameter.
 For pipes >200mm, full section replacement is required per EN 253.
-"""
+""",
     },
-
     {
         "title": "Equipment: Return Line Temperature Management",
         "category": "equipment",
@@ -886,26 +863,29 @@ EFFICIENCY METRIC:
 Delta-T (supply temperature minus return temperature) is the primary
 efficiency indicator. Target delta-T: 50-65°C. Delta-T below 30°C indicates
 a serious heat extraction problem requiring immediate investigation.
-"""
+""",
     },
 ]
 
 
-def chunk_document(doc: dict, chunk_size: int = CHUNK_SIZE,
-                   overlap: int = CHUNK_OVERLAP) -> list:
-    text   = doc["content"].strip()
+def chunk_document(
+    doc: dict, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list:
+    text = doc["content"].strip()
     chunks = []
-    start  = 0
+    start = 0
     while start < len(text):
-        end   = min(start + chunk_size, len(text))
+        end = min(start + chunk_size, len(text))
         chunk = text[start:end].strip()
         if chunk:
-            chunks.append({
-                "title":    doc["title"],
-                "category": doc["category"],
-                "chunk":    chunk,
-                "doc_id":   doc["title"].replace(" ", "_").replace(":", ""),
-            })
+            chunks.append(
+                {
+                    "title": doc["title"],
+                    "category": doc["category"],
+                    "chunk": chunk,
+                    "doc_id": doc["title"].replace(" ", "_").replace(":", ""),
+                }
+            )
         if end >= len(text):
             break
         start = end - overlap
@@ -914,7 +894,7 @@ def chunk_document(doc: dict, chunk_size: int = CHUNK_SIZE,
 
 def build_knowledge_base():
     os.makedirs(RAG_DOCS_DIR, exist_ok=True)
-    os.makedirs(MODELS_DIR,   exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
     print("=== Building RAG Knowledge Base ===")
     print(f"Documents: {len(DOCUMENTS)}")
@@ -928,22 +908,23 @@ def build_knowledge_base():
     print(f"\nTotal chunks: {len(all_chunks)}")
 
     print(f"\nLoading embedding model: {EMBEDDING_MODEL}...")
-    embedder   = SentenceTransformer(EMBEDDING_MODEL)
-    texts      = [c["chunk"] for c in all_chunks]
+    embedder = SentenceTransformer(EMBEDDING_MODEL)
+    texts = [c["chunk"] for c in all_chunks]
     print(f"Embedding {len(texts)} chunks...")
-    embeddings = embedder.encode(texts, show_progress_bar=True,
-                                  batch_size=32, normalize_embeddings=True)
+    embeddings = embedder.encode(
+        texts, show_progress_bar=True, batch_size=32, normalize_embeddings=True
+    )
     embeddings = embeddings.astype(np.float32)
     print(f"Embedding shape: {embeddings.shape}")
 
-    dim   = embeddings.shape[1]
+    dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
     print(f"FAISS index built: {index.ntotal} vectors, dim={dim}")
 
-    index_path  = os.path.join(MODELS_DIR,   "rag_faiss.index")
+    index_path = os.path.join(MODELS_DIR, "rag_faiss.index")
     chunks_path = os.path.join(RAG_DOCS_DIR, "chunks.json")
-    model_path  = os.path.join(MODELS_DIR,   "rag_embedder_name.pkl")
+    model_path = os.path.join(MODELS_DIR, "rag_embedder_name.pkl")
 
     faiss.write_index(index, index_path)
     with open(chunks_path, "w", encoding="utf-8") as f:

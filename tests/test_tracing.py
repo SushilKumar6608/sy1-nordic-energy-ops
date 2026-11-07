@@ -29,6 +29,7 @@ from src.tracing.langfuse_tracer import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def reset_singleton():
     """Ensure each test starts with a fresh tracer singleton."""
@@ -48,6 +49,7 @@ def no_langfuse_env(monkeypatch):
 # ---------------------------------------------------------------------------
 # _tracing_enabled helper
 # ---------------------------------------------------------------------------
+
 
 class TestTracingEnabled:
     def test_disabled_when_no_keys(self, monkeypatch):
@@ -75,6 +77,7 @@ class TestTracingEnabled:
 # get_tracer singleton
 # ---------------------------------------------------------------------------
 
+
 class TestGetTracerSingleton:
     def test_returns_sy1tracer_instance(self, no_langfuse_env):
         tracer = get_tracer()
@@ -100,16 +103,21 @@ class TestGetTracerSingleton:
 # No-op tracer behaviour (no credentials)
 # ---------------------------------------------------------------------------
 
+
 class TestNoOpTracer:
     def test_policy_span_does_not_raise(self, no_langfuse_env):
         tracer = get_tracer()
         # Should complete without any exception
-        with tracer.policy_span("get_demand_forecast", {"city": "Stockholm", "target": "heating_demand_mw"}):
+        with tracer.policy_span(
+            "get_demand_forecast", {"city": "Stockholm", "target": "heating_demand_mw"}
+        ):
             pass
 
     def test_policy_span_yields_context(self, no_langfuse_env):
         tracer = get_tracer()
-        with tracer.policy_span("get_demand_forecast", {"city": "Oslo", "target": "heating_demand_mw"}) as ctx:
+        with tracer.policy_span(
+            "get_demand_forecast", {"city": "Oslo", "target": "heating_demand_mw"}
+        ) as ctx:
             assert isinstance(ctx, PolicySpanContext)
             assert ctx.tool_name == "get_demand_forecast"
 
@@ -118,8 +126,10 @@ class TestNoOpTracer:
 
         class FakeDecision:
             allowed = True
+
             class tier:
                 value = "read"
+
             requires_approval = False
             reason = "ok"
 
@@ -155,6 +165,7 @@ class TestNoOpTracer:
 # Tracer degrades gracefully when langfuse package not installed
 # ---------------------------------------------------------------------------
 
+
 class TestLangfuseImportFailure:
     def test_degrades_when_langfuse_missing(self, monkeypatch):
         """
@@ -166,10 +177,12 @@ class TestLangfuseImportFailure:
 
         # Patch the import inside langfuse_tracer so it raises ImportError
         import src.tracing.langfuse_tracer as tracer_mod
+
         original_tracer = tracer_mod._tracer_instance
 
         # Monkeypatch builtins.__import__ to fail for 'langfuse'
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -184,7 +197,9 @@ class TestLangfuseImportFailure:
         tracer = get_tracer()
 
         # Whether disabled or not, policy_span must work
-        with tracer.policy_span("get_demand_forecast", {"city": "Stockholm", "target": "heating_demand_mw"}):
+        with tracer.policy_span(
+            "get_demand_forecast", {"city": "Stockholm", "target": "heating_demand_mw"}
+        ):
             pass
 
         # Restore
@@ -197,6 +212,7 @@ class TestLangfuseImportFailure:
 # PolicySpanContext directly
 # ---------------------------------------------------------------------------
 
+
 class TestPolicySpanContextDirectly:
     def test_disabled_span_set_outcome_noop(self):
         ctx = PolicySpanContext(
@@ -205,15 +221,17 @@ class TestPolicySpanContextDirectly:
             _span=None,
             _enabled=False,
         )
-        ctx.set_outcome(object())   # Must not raise
-        ctx.set_error(ValueError()) # Must not raise
-        ctx._close()                # Must not raise
+        ctx.set_outcome(object())  # Must not raise
+        ctx.set_error(ValueError())  # Must not raise
+        ctx._close()  # Must not raise
 
     def test_enabled_span_with_bad_span_object(self):
         """When _span is an unexpected object, set_outcome must not crash."""
+
         class BadSpan:
             def update(self, **kwargs):
                 raise RuntimeError("bad span")
+
             def end(self):
                 raise RuntimeError("bad end")
 
@@ -223,6 +241,6 @@ class TestPolicySpanContextDirectly:
             _span=BadSpan(),
             _enabled=True,
         )
-        ctx.set_outcome(object())   # Must not raise
-        ctx.set_error(ValueError()) # Must not raise
-        ctx._close()                # Must not raise
+        ctx.set_outcome(object())  # Must not raise
+        ctx.set_error(ValueError())  # Must not raise
+        ctx._close()  # Must not raise

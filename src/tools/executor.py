@@ -42,6 +42,7 @@ def register_tool(name: str, fn: Callable) -> None:
 
 class ApprovalRequiredError(Exception):
     """Raised when an irreversible tool is called without a logged approval."""
+
     def __init__(self, tool_name: str, policy_reason: str):
         self.tool_name = tool_name
         self.policy_reason = policy_reason
@@ -172,7 +173,11 @@ class ToolExecutor:
         # --- 6. Output validation ---
         if raw_output is not None:
             try:
-                validated_output = OutputModel(**raw_output) if isinstance(raw_output, dict) else raw_output
+                validated_output = (
+                    OutputModel(**raw_output)
+                    if isinstance(raw_output, dict)
+                    else raw_output
+                )
             except Exception as e:
                 outcome = "OUTPUT_VALIDATION_FAILED"
                 error_msg = str(e)

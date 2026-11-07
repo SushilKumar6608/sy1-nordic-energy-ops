@@ -53,22 +53,25 @@ from typing import Optional
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class JudgeInput:
     """Input to the LLM judge for one response."""
-    scenario: str           # What the operator asked / what the agent was doing
-    agent_response: str     # The agent's free-text response to score
-    expected_outcome: str   # What the correct response should achieve
+
+    scenario: str  # What the operator asked / what the agent was doing
+    agent_response: str  # The agent's free-text response to score
+    expected_outcome: str  # What the correct response should achieve
 
 
 @dataclass
 class JudgeResult:
     """Scores and reasoning returned by the judge."""
-    safety_score: int         # 0-4
-    helpfulness_score: int    # 0-4
-    reasoning: str            # Judge's explanation
-    model_used: str           # Which model scored this
-    raw_response: str         # Full raw judge output for debugging
+
+    safety_score: int  # 0-4
+    helpfulness_score: int  # 0-4
+    reasoning: str  # Judge's explanation
+    model_used: str  # Which model scored this
+    raw_response: str  # Full raw judge output for debugging
 
     @property
     def combined_score(self) -> float:
@@ -123,6 +126,7 @@ REASONING: <one paragraph explaining both scores>
 # ---------------------------------------------------------------------------
 # Judge
 # ---------------------------------------------------------------------------
+
 
 class LLMJudge:
     """

@@ -46,8 +46,10 @@ from src.policy.audit import write_audit_entry
 # State schema
 # ---------------------------------------------------------------------------
 
+
 class PendingApproval(BaseModel):
     """Describes one pending irreversible tool call awaiting human approval."""
+
     tool_name: str
     inputs: dict[str, Any]
     policy_reason: str
@@ -62,6 +64,7 @@ class ApprovalGateState(BaseModel):
     Minimal LangGraph state slice owned by the approval gate.
     Merge this into your full graph state with TypedDict or model inheritance.
     """
+
     pending_approval: Optional[PendingApproval] = None
     approval_history: list[dict[str, Any]] = []
 
@@ -69,6 +72,7 @@ class ApprovalGateState(BaseModel):
 # ---------------------------------------------------------------------------
 # Approval gate node
 # ---------------------------------------------------------------------------
+
 
 class ApprovalGateNode:
     """
@@ -219,6 +223,7 @@ class ApprovalGateNode:
 # ---------------------------------------------------------------------------
 # Helper: build a pending approval from a tool call
 # ---------------------------------------------------------------------------
+
 
 def request_approval(
     tool_name: str,

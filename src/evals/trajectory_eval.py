@@ -60,32 +60,36 @@ from src.policy.engine import PolicyEngine, PolicyDecision
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ExpectedStep:
     """One expected step in a trajectory."""
+
     tool_name: str
     inputs: dict[str, Any]
     expected_allowed: bool
-    expected_tier: str               # "read", "reversible", "irreversible"
+    expected_tier: str  # "read", "reversible", "irreversible"
     expected_requires_approval: bool
-    description: str = ""            # Optional human label for the step
+    description: str = ""  # Optional human label for the step
 
 
 @dataclass
 class ActualStep:
     """The actual outcome recorded when a step was evaluated."""
+
     tool_name: str
     inputs: dict[str, Any]
     actual_allowed: bool
     actual_tier: str
     actual_requires_approval: bool
     actual_reason: str
-    error: Optional[str] = None      # Set if PolicyEngine raised
+    error: Optional[str] = None  # Set if PolicyEngine raised
 
 
 @dataclass
 class StepResult:
     """Comparison of one expected vs actual step."""
+
     step_index: int
     expected: ExpectedStep
     actual: ActualStep
@@ -103,17 +107,19 @@ class StepResult:
 @dataclass
 class TrajectoryScenario:
     """A named sequence of expected tool call outcomes."""
+
     name: str
     steps: list[ExpectedStep]
-    kill_switch_active: bool = False   # Activate kill switch for this scenario
+    kill_switch_active: bool = False  # Activate kill switch for this scenario
 
 
 @dataclass
 class TrajectoryResult:
     """Full result of running one trajectory scenario."""
+
     scenario_name: str
     step_results: list[StepResult]
-    passed: bool                       # True if ALL steps passed
+    passed: bool  # True if ALL steps passed
 
     def summary(self) -> str:
         lines = [
@@ -132,6 +138,7 @@ class TrajectoryResult:
 # ---------------------------------------------------------------------------
 # Evaluator
 # ---------------------------------------------------------------------------
+
 
 class TrajectoryEvaluator:
     """
@@ -164,9 +171,7 @@ class TrajectoryEvaluator:
             passed=passed,
         )
 
-    def _evaluate_step(
-        self, engine: PolicyEngine, step: ExpectedStep
-    ) -> ActualStep:
+    def _evaluate_step(self, engine: PolicyEngine, step: ExpectedStep) -> ActualStep:
         try:
             decision: PolicyDecision = engine.evaluate(step.tool_name, step.inputs)
             return ActualStep(

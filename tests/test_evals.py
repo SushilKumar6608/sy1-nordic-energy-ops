@@ -33,6 +33,7 @@ from src.evals.judge import LLMJudge, JudgeResult, JudgeInput, CALIBRATION_CASES
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _read_step(tool_name="get_demand_forecast", description=""):
     return ExpectedStep(
         tool_name=tool_name,
@@ -75,6 +76,7 @@ def _irreversible_step(description=""):
 # ---------------------------------------------------------------------------
 # TrajectoryEvaluator - single step
 # ---------------------------------------------------------------------------
+
 
 class TestTrajectoryEvaluatorSingleStep:
     def test_read_step_passes(self):
@@ -149,6 +151,7 @@ class TestTrajectoryEvaluatorSingleStep:
 # TrajectoryEvaluator - multi-step scenarios
 # ---------------------------------------------------------------------------
 
+
 class TestMultiStepScenarios:
     def test_full_mixed_scenario_passes(self):
         evaluator = TrajectoryEvaluator()
@@ -182,7 +185,11 @@ class TestMultiStepScenarios:
                 _read_step(),
                 ExpectedStep(
                     tool_name="set_alert_threshold",
-                    inputs={"node_id": 5, "threshold_mw": 150.0, "idempotency_key": "k1"},
+                    inputs={
+                        "node_id": 5,
+                        "threshold_mw": 150.0,
+                        "idempotency_key": "k1",
+                    },
                     expected_allowed=False,  # Wrong - should be True
                     expected_tier="reversible",
                     expected_requires_approval=False,
@@ -235,6 +242,7 @@ class TestMultiStepScenarios:
 # Kill switch scenario
 # ---------------------------------------------------------------------------
 
+
 class TestKillSwitchScenario:
     def test_kill_switch_blocks_all_steps(self):
         evaluator = TrajectoryEvaluator()
@@ -251,7 +259,11 @@ class TestKillSwitchScenario:
                 ),
                 ExpectedStep(
                     tool_name="set_alert_threshold",
-                    inputs={"node_id": 1, "threshold_mw": 100.0, "idempotency_key": "k1"},
+                    inputs={
+                        "node_id": 1,
+                        "threshold_mw": 100.0,
+                        "idempotency_key": "k1",
+                    },
                     expected_allowed=False,
                     # Kill switch short-circuits before tier lookup; engine returns "read"
                     # for all blocked tools. We only assert allowed=False here.
@@ -294,6 +306,7 @@ class TestKillSwitchScenario:
 # TrajectoryResult summary
 # ---------------------------------------------------------------------------
 
+
 class TestTrajectoryResultSummary:
     def test_summary_contains_scenario_name(self):
         evaluator = TrajectoryEvaluator()
@@ -330,6 +343,7 @@ class TestTrajectoryResultSummary:
 # ---------------------------------------------------------------------------
 # LLMJudge - parse_response (offline, no API call)
 # ---------------------------------------------------------------------------
+
 
 class TestJudgeParseResponse:
     def _make_judge(self):
@@ -392,6 +406,7 @@ class TestJudgeParseResponse:
 # JudgeResult - combined_score and passed()
 # ---------------------------------------------------------------------------
 
+
 class TestJudgeResult:
     def _make_result(self, safety, helpfulness):
         return JudgeResult(
@@ -432,6 +447,7 @@ class TestJudgeResult:
 # Calibration cases structure
 # ---------------------------------------------------------------------------
 
+
 class TestCalibrationCases:
     def test_calibration_cases_not_empty(self):
         assert len(CALIBRATION_CASES) >= 3
@@ -454,6 +470,7 @@ class TestCalibrationCases:
 # Live API tests (skipped unless ANTHROPIC_API_KEY is set)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.live_api
 @pytest.mark.skipif(
     not os.environ.get("ANTHROPIC_API_KEY"),
@@ -475,6 +492,8 @@ class TestLiveJudge:
 
     def test_helpful_read_scores_high_helpfulness(self):
         judge = LLMJudge(model="claude-haiku-5-5")
-        case = next(c for c in CALIBRATION_CASES if c["name"] == "helpful_read_response")
+        case = next(
+            c for c in CALIBRATION_CASES if c["name"] == "helpful_read_response"
+        )
         result = judge.score(case["input"])
         assert result.helpfulness_score >= case.get("min_helpfulness", 3)

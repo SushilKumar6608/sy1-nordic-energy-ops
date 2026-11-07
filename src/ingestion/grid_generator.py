@@ -14,12 +14,12 @@ SYNTHETIC_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "syn
 # Typical substation capacity: 0.5 - 5.0 MW
 
 CITY_CONFIGS = {
-    "Stockholm":     {"nodes": 30, "seed": 42},
-    "Gothenburg":    {"nodes": 25, "seed": 43},
-    "Malmö":         {"nodes": 22, "seed": 44},
-    "Uppsala":       {"nodes": 18, "seed": 45},
-    "Umeå":          {"nodes": 16, "seed": 46},
-    "Kiruna":        {"nodes": 12, "seed": 47},
+    "Stockholm": {"nodes": 30, "seed": 42},
+    "Gothenburg": {"nodes": 25, "seed": 43},
+    "Malmö": {"nodes": 22, "seed": 44},
+    "Uppsala": {"nodes": 18, "seed": 45},
+    "Umeå": {"nodes": 16, "seed": 46},
+    "Kiruna": {"nodes": 12, "seed": 47},
     "Åre-Östersund": {"nodes": 14, "seed": 48},
 }
 
@@ -40,21 +40,27 @@ def generate_city_grid(city: str, n_nodes: int, seed: int) -> nx.DiGraph:
     G = nx.DiGraph()
 
     # Add central plant node
-    G.add_node(0, type="plant", city=city,
-               capacity_mw=50.0,
-               supply_temp_c=110.0,
-               return_temp_c=50.0)
+    G.add_node(
+        0,
+        type="plant",
+        city=city,
+        capacity_mw=50.0,
+        supply_temp_c=110.0,
+        return_temp_c=50.0,
+    )
 
     # Add substation nodes
     for i in range(1, n_nodes):
         node_type = "substation" if i % 4 != 0 else "building_cluster"
-        G.add_node(i,
-                   type=node_type,
-                   city=city,
-                   capacity_mw=float(rng.uniform(0.5, 5.0)),
-                   demand_mw=float(rng.uniform(0.3, 4.5)),
-                   supply_temp_c=float(rng.uniform(80.0, 110.0)),
-                   return_temp_c=float(rng.uniform(40.0, 60.0)))
+        G.add_node(
+            i,
+            type=node_type,
+            city=city,
+            capacity_mw=float(rng.uniform(0.5, 5.0)),
+            demand_mw=float(rng.uniform(0.3, 4.5)),
+            supply_temp_c=float(rng.uniform(80.0, 110.0)),
+            return_temp_c=float(rng.uniform(40.0, 60.0)),
+        )
 
     # Build tree topology from plant outward (realistic for district heating)
     # Each node connects to the plant or a closer node
@@ -67,12 +73,15 @@ def generate_city_grid(city: str, n_nodes: int, seed: int) -> nx.DiGraph:
         heat_loss_w_per_m = float(rng.uniform(15.0, 30.0))
         total_heat_loss_kw = (heat_loss_w_per_m * pipe_length_m) / 1000.0
 
-        G.add_edge(int(parent), i,
-                   pipe_length_m=pipe_length_m,
-                   pipe_diameter_mm=pipe_diameter_mm,
-                   flow_velocity_m_s=flow_velocity,
-                   heat_loss_kw=total_heat_loss_kw,
-                   max_flow_m3_h=float(rng.uniform(10, 200)))
+        G.add_edge(
+            int(parent),
+            i,
+            pipe_length_m=pipe_length_m,
+            pipe_diameter_mm=pipe_diameter_mm,
+            flow_velocity_m_s=flow_velocity,
+            heat_loss_kw=total_heat_loss_kw,
+            max_flow_m3_h=float(rng.uniform(10, 200)),
+        )
 
     # Add a small number of redundancy edges (loops) — realistic for larger grids
     n_loops = max(1, n_nodes // 10)
@@ -83,13 +92,16 @@ def generate_city_grid(city: str, n_nodes: int, seed: int) -> nx.DiGraph:
         v = int(rng.integers(1, n_nodes))
         if u != v and not G.has_edge(u, v) and not G.has_edge(v, u):
             pipe_length_m = float(rng.uniform(300, 1500))
-            G.add_edge(u, v,
-                       pipe_length_m=pipe_length_m,
-                       pipe_diameter_mm=float(rng.choice([100, 150, 200])),
-                       flow_velocity_m_s=float(rng.uniform(0.5, 1.5)),
-                       heat_loss_kw=(25.0 * pipe_length_m) / 1000.0,
-                       max_flow_m3_h=float(rng.uniform(10, 80)),
-                       is_redundancy=True)
+            G.add_edge(
+                u,
+                v,
+                pipe_length_m=pipe_length_m,
+                pipe_diameter_mm=float(rng.choice([100, 150, 200])),
+                flow_velocity_m_s=float(rng.uniform(0.5, 1.5)),
+                heat_loss_kw=(25.0 * pipe_length_m) / 1000.0,
+                max_flow_m3_h=float(rng.uniform(10, 80)),
+                is_redundancy=True,
+            )
             added += 1
         attempts += 1
 
@@ -130,8 +142,10 @@ def generate_all_grids() -> dict:
         all_nodes.append(nodes_df)
         all_edges.append(edges_df)
 
-        print(f"  Nodes: {G.number_of_nodes()} | Edges: {G.number_of_edges()} | "
-              f"Total pipe length: {edges_df['pipe_length_m'].sum():.0f}m")
+        print(
+            f"  Nodes: {G.number_of_nodes()} | Edges: {G.number_of_edges()} | "
+            f"Total pipe length: {edges_df['pipe_length_m'].sum():.0f}m"
+        )
 
     nodes_combined = pd.concat(all_nodes, ignore_index=True)
     edges_combined = pd.concat(all_edges, ignore_index=True)

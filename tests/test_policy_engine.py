@@ -22,6 +22,7 @@ from src.policy.engine import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def engine():
     return PolicyEngine()
@@ -36,6 +37,7 @@ def engine_kill_switch():
 # READ tier
 # ---------------------------------------------------------------------------
 
+
 class TestReadTier:
     def test_read_tool_allowed(self, engine):
         decision = engine.evaluate("get_demand_forecast", {"city": "Stockholm"})
@@ -49,8 +51,7 @@ class TestReadTier:
 
     def test_all_read_tools_allowed(self, engine):
         read_tools = [
-            t for t, tier in TOOL_PERMISSIONS.items()
-            if tier == PermissionTier.READ
+            t for t, tier in TOOL_PERMISSIONS.items() if tier == PermissionTier.READ
         ]
         for tool in read_tools:
             d = engine.evaluate(tool, {})
@@ -60,6 +61,7 @@ class TestReadTier:
 # ---------------------------------------------------------------------------
 # REVERSIBLE tier
 # ---------------------------------------------------------------------------
+
 
 class TestReversibleTier:
     def test_reversible_tool_allowed(self, engine):
@@ -74,7 +76,8 @@ class TestReversibleTier:
 
     def test_all_reversible_tools_allowed(self, engine):
         reversible_tools = [
-            t for t, tier in TOOL_PERMISSIONS.items()
+            t
+            for t, tier in TOOL_PERMISSIONS.items()
             if tier == PermissionTier.REVERSIBLE
         ]
         for tool in reversible_tools:
@@ -85,6 +88,7 @@ class TestReversibleTier:
 # ---------------------------------------------------------------------------
 # IRREVERSIBLE tier
 # ---------------------------------------------------------------------------
+
 
 class TestIrreversibleTier:
     def test_irreversible_tool_blocked(self, engine):
@@ -104,7 +108,8 @@ class TestIrreversibleTier:
 
     def test_all_irreversible_tools_blocked(self, engine):
         irreversible_tools = [
-            t for t, tier in TOOL_PERMISSIONS.items()
+            t
+            for t, tier in TOOL_PERMISSIONS.items()
             if tier == PermissionTier.IRREVERSIBLE
         ]
         for tool in irreversible_tools:
@@ -116,6 +121,7 @@ class TestIrreversibleTier:
 # ---------------------------------------------------------------------------
 # Kill switch
 # ---------------------------------------------------------------------------
+
 
 class TestKillSwitch:
     def test_kill_switch_blocks_all_writes(self, engine_kill_switch):
@@ -151,6 +157,7 @@ class TestKillSwitch:
 # Unknown tool - fail closed
 # ---------------------------------------------------------------------------
 
+
 class TestUnknownTool:
     def test_unknown_tool_raises(self, engine):
         with pytest.raises(ValueError, match="Unknown tool"):
@@ -169,6 +176,7 @@ class TestUnknownTool:
 # ---------------------------------------------------------------------------
 # PolicyDecision serialization
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyDecision:
     def test_to_dict_has_required_keys(self, engine):

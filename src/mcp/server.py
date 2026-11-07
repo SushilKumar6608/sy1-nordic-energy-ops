@@ -38,7 +38,9 @@ import uuid
 from typing import Any
 
 # Add project root to sys.path so src.* imports work when run as __main__
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
@@ -62,8 +64,14 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "city": {"type": "string", "description": "City name, e.g. 'Stockholm'"},
-                "target": {"type": "string", "description": "Forecast target, e.g. 'heating_demand_mw'"},
+                "city": {
+                    "type": "string",
+                    "description": "City name, e.g. 'Stockholm'",
+                },
+                "target": {
+                    "type": "string",
+                    "description": "Forecast target, e.g. 'heating_demand_mw'",
+                },
             },
             "required": ["city", "target"],
         },
@@ -92,8 +100,14 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {
                 "city": {"type": "string"},
-                "start_date": {"type": "string", "description": "ISO date, e.g. '2024-01-01'"},
-                "end_date": {"type": "string", "description": "ISO date, e.g. '2024-01-31'"},
+                "start_date": {
+                    "type": "string",
+                    "description": "ISO date, e.g. '2024-01-01'",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "ISO date, e.g. '2024-01-31'",
+                },
             },
             "required": ["city", "start_date", "end_date"],
         },
@@ -109,7 +123,10 @@ TOOL_DEFINITIONS = [
             "properties": {
                 "node_id": {"type": "integer"},
                 "threshold_mw": {"type": "number"},
-                "idempotency_key": {"type": "string", "description": "UUID for deduplication"},
+                "idempotency_key": {
+                    "type": "string",
+                    "description": "UUID for deduplication",
+                },
             },
             "required": ["node_id", "threshold_mw", "idempotency_key"],
         },
@@ -141,11 +158,20 @@ TOOL_DEFINITIONS = [
             "properties": {
                 "node_id": {"type": "integer"},
                 "fault_type": {"type": "string"},
-                "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+                "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "critical"],
+                },
                 "justification": {"type": "string"},
                 "idempotency_key": {"type": "string"},
             },
-            "required": ["node_id", "fault_type", "priority", "justification", "idempotency_key"],
+            "required": [
+                "node_id",
+                "fault_type",
+                "priority",
+                "justification",
+                "idempotency_key",
+            ],
         },
     },
     {
@@ -190,6 +216,7 @@ TOOL_DEFINITIONS = [
 # ---------------------------------------------------------------------------
 # Policy-enforced tool call handler
 # ---------------------------------------------------------------------------
+
 
 def _handle_tool_call(
     tool_name: str,
@@ -299,6 +326,7 @@ def _handle_tool_call(
 # MCP JSON-RPC message handlers
 # ---------------------------------------------------------------------------
 
+
 def _build_server_info() -> dict[str, Any]:
     return {
         "name": "sy1-gov",
@@ -340,12 +368,14 @@ def _handle_tools_call(
             "isError": False,
         }
     else:
-        error_text = json.dumps({
-            "blocked": True,
-            "tier": outcome.get("tier"),
-            "requires_approval": outcome.get("requires_approval", False),
-            "reason": outcome.get("reason"),
-        })
+        error_text = json.dumps(
+            {
+                "blocked": True,
+                "tier": outcome.get("tier"),
+                "requires_approval": outcome.get("requires_approval", False),
+                "reason": outcome.get("reason"),
+            }
+        )
         return {
             "content": [{"type": "text", "text": error_text}],
             "isError": True,
@@ -355,6 +385,7 @@ def _handle_tools_call(
 # ---------------------------------------------------------------------------
 # Server
 # ---------------------------------------------------------------------------
+
 
 class GovernedMCPServer:
     """
@@ -395,7 +426,9 @@ class GovernedMCPServer:
             elif method == "ping":
                 result = {}
             else:
-                return self._error_response(msg_id, -32601, f"Method not found: {method}")
+                return self._error_response(
+                    msg_id, -32601, f"Method not found: {method}"
+                )
 
             return {
                 "jsonrpc": "2.0",
@@ -408,9 +441,7 @@ class GovernedMCPServer:
             return self._error_response(msg_id, -32603, str(exc))
 
     @staticmethod
-    def _error_response(
-        msg_id: Any, code: int, message: str
-    ) -> dict[str, Any]:
+    def _error_response(msg_id: Any, code: int, message: str) -> dict[str, Any]:
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
@@ -423,7 +454,9 @@ class GovernedMCPServer:
         line-by-line and writing responses to stdout.
         """
         print("[sy1-gov] MCP server starting (stdio transport)", file=sys.stderr)
-        print(f"[sy1-gov] Kill switch: {self._engine.kill_switch_active}", file=sys.stderr)
+        print(
+            f"[sy1-gov] Kill switch: {self._engine.kill_switch_active}", file=sys.stderr
+        )
         print(f"[sy1-gov] Langfuse tracing: {self._tracer.enabled}", file=sys.stderr)
 
         for line in sys.stdin:
@@ -448,6 +481,7 @@ class GovernedMCPServer:
 # ---------------------------------------------------------------------------
 # Public factory + entry point
 # ---------------------------------------------------------------------------
+
 
 def create_server(
     kill_switch_active: bool = False,

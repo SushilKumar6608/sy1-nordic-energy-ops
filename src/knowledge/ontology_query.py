@@ -145,10 +145,13 @@ class OntologyQuery:
                     "fault_uri": uri,
                     "fault_label": str(row.faultLabel),
                     "matched_symptoms": [],
-                    "onset_pattern": str(row.onsetPattern) if row.onsetPattern else "unknown",
+                    "onset_pattern": (
+                        str(row.onsetPattern) if row.onsetPattern else "unknown"
+                    ),
                     "deviation_range": (
                         f"{float(row.devMin):.0f}-{float(row.devMax):.0f}%"
-                        if row.devMin and row.devMax else "unknown"
+                        if row.devMin and row.devMax
+                        else "unknown"
                     ),
                     "sop_label": str(row.sopLabel) if row.sopLabel else "unknown",
                 }
@@ -219,6 +222,7 @@ class OntologyQuery:
             fault_nodes.setdefault(str(row.fault), []).append(str(row.nodeLabel))
 
         return [
-            f for f in faults
+            f
+            for f in faults
             if node_type_label in fault_nodes.get(f["fault_uri"], [node_type_label])
         ]

@@ -23,6 +23,7 @@ from src.policy.engine import PolicyEngine
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def isolated_audit_log(tmp_path, monkeypatch):
     log_path = tmp_path / "audit_logs" / "audit.jsonl"
@@ -57,6 +58,7 @@ def _irreversible_pending(token=None, approved=False, denied=False):
 # No pending approval
 # ---------------------------------------------------------------------------
 
+
 class TestNoPendingApproval:
     def test_passthrough_when_no_pending(self, gate):
         state = {"some_key": "some_value"}
@@ -73,6 +75,7 @@ class TestNoPendingApproval:
 # First entry - no token yet
 # ---------------------------------------------------------------------------
 
+
 class TestFirstEntry:
     def test_state_unchanged_on_first_entry(self, gate, isolated_audit_log):
         state = {"pending_approval": _irreversible_pending()}
@@ -85,6 +88,7 @@ class TestFirstEntry:
         state = {"pending_approval": _irreversible_pending()}
         gate(state)
         import json
+
         lines = isolated_audit_log.read_text().strip().splitlines()
         assert len(lines) == 1
         entry = json.loads(lines[0])
@@ -95,6 +99,7 @@ class TestFirstEntry:
 # ---------------------------------------------------------------------------
 # Resume with valid token
 # ---------------------------------------------------------------------------
+
 
 class TestResumeWithValidToken:
     def test_approved_flag_set(self, gate):
@@ -112,6 +117,7 @@ class TestResumeWithValidToken:
         state = {"pending_approval": _irreversible_pending(token="operator-token-abc")}
         gate(state)
         import json
+
         lines = isolated_audit_log.read_text().strip().splitlines()
         entry = json.loads(lines[0])
         assert entry["outcome"] == "APPROVED"
@@ -129,7 +135,9 @@ class TestResumeWithValidToken:
     def test_approval_history_accumulates(self, gate):
         state = {
             "pending_approval": _irreversible_pending(token="tok-1"),
-            "approval_history": [{"tool_name": "isolate_grid_segment", "outcome": "APPROVED"}],
+            "approval_history": [
+                {"tool_name": "isolate_grid_segment", "outcome": "APPROVED"}
+            ],
         }
         result = gate(state)
         assert len(result["approval_history"]) == 2
@@ -138,6 +146,7 @@ class TestResumeWithValidToken:
 # ---------------------------------------------------------------------------
 # Resume with empty token
 # ---------------------------------------------------------------------------
+
 
 class TestEmptyToken:
     def test_denied_on_empty_token(self, gate):
@@ -155,6 +164,7 @@ class TestEmptyToken:
         state = {"pending_approval": _irreversible_pending(token="")}
         gate(state)
         import json
+
         lines = isolated_audit_log.read_text().strip().splitlines()
         entry = json.loads(lines[0])
         assert entry["outcome"] == "DENIED_EMPTY_TOKEN"
@@ -163,6 +173,7 @@ class TestEmptyToken:
 # ---------------------------------------------------------------------------
 # Unknown tool
 # ---------------------------------------------------------------------------
+
 
 class TestUnknownTool:
     def test_denied_for_unknown_tool(self, gate):
@@ -194,6 +205,7 @@ class TestUnknownTool:
         }
         gate(state)
         import json
+
         lines = isolated_audit_log.read_text().strip().splitlines()
         entry = json.loads(lines[0])
         assert entry["outcome"] == "DENIED_UNKNOWN_TOOL"
@@ -202,6 +214,7 @@ class TestUnknownTool:
 # ---------------------------------------------------------------------------
 # Non-irreversible tool routed through gate
 # ---------------------------------------------------------------------------
+
 
 class TestNonIrreversibleTool:
     def test_gate_skips_for_read_tool(self, gate):
@@ -225,6 +238,7 @@ class TestNonIrreversibleTool:
 # request_approval helper
 # ---------------------------------------------------------------------------
 
+
 class TestRequestApproval:
     def test_creates_pending_approval(self):
         pa = request_approval(
@@ -243,5 +257,7 @@ class TestRequestApproval:
         assert len(pa.trace_id) == 36  # UUID
 
     def test_custom_trace_id_preserved(self):
-        pa = request_approval("dispatch_maintenance_crew", {}, "reason", trace_id="custom-trace")
+        pa = request_approval(
+            "dispatch_maintenance_crew", {}, "reason", trace_id="custom-trace"
+        )
         assert pa.trace_id == "custom-trace"

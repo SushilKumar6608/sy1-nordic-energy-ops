@@ -7,6 +7,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
 import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 from prepare_features import load_and_prepare, FEATURE_COLS
 
@@ -31,8 +32,8 @@ def mape(y_true: np.ndarray, y_pred: np.ndarray, target: str) -> float:
 
 
 def evaluate(y_true: np.ndarray, y_pred: np.ndarray, target: str) -> dict:
-    mae      = mean_absolute_error(y_true, y_pred)
-    rmse     = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
     mape_val = mape(y_true, y_pred, target)
     return {"mae": round(mae, 4), "rmse": round(rmse, 4), "mape": round(mape_val, 4)}
 
@@ -50,20 +51,20 @@ def train_xgboost_for_target(target: str) -> pd.DataFrame:
         print(f"\nTraining {city}...")
 
         train = splits["train"]
-        val   = splits["val"]
-        test  = splits["test"]
+        val = splits["val"]
+        test = splits["test"]
 
         X_train = train[FEATURE_COLS].values
         y_train = train[target].values
-        X_val   = val[FEATURE_COLS].values
-        y_val   = val[target].values
-        X_test  = test[FEATURE_COLS].values
-        y_test  = test[target].values
+        X_val = val[FEATURE_COLS].values
+        y_val = val[target].values
+        X_test = test[FEATURE_COLS].values
+        y_test = test[target].values
 
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
-        X_val   = scaler.transform(X_val)
-        X_test  = scaler.transform(X_test)
+        X_val = scaler.transform(X_val)
+        X_test = scaler.transform(X_test)
 
         model = XGBRegressor(
             n_estimators=500,
@@ -79,7 +80,8 @@ def train_xgboost_for_target(target: str) -> pd.DataFrame:
         )
 
         model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             eval_set=[(X_val, y_val)],
             verbose=False,
         )
@@ -88,31 +90,42 @@ def train_xgboost_for_target(target: str) -> pd.DataFrame:
         metrics = evaluate(y_test, y_pred, target)
 
         threshold_note = "MAPE@>1MW" if "cooling" in target else "MAPE@>0.1MW"
-        print(f"  MAE={metrics['mae']:.3f} MW | RMSE={metrics['rmse']:.3f} MW | "
-              f"{threshold_note}={metrics['mape']:.2f}%")
+        print(
+            f"  MAE={metrics['mae']:.3f} MW | RMSE={metrics['rmse']:.3f} MW | "
+            f"{threshold_note}={metrics['mape']:.2f}%"
+        )
 
-        city_key   = (city.replace(" ", "_").replace("-", "_")
-                         .replace("å", "a").replace("ä", "a").replace("ö", "o"))
+        city_key = (
+            city.replace(" ", "_")
+            .replace("-", "_")
+            .replace("å", "a")
+            .replace("ä", "a")
+            .replace("ö", "o")
+        )
         target_key = "heat" if "heating" in target else "cool"
 
-        model_path  = os.path.join(MODELS_DIR, f"xgb_{city_key}_{target_key}.pkl")
-        scaler_path = os.path.join(MODELS_DIR, f"xgb_scaler_{city_key}_{target_key}.pkl")
+        model_path = os.path.join(MODELS_DIR, f"xgb_{city_key}_{target_key}.pkl")
+        scaler_path = os.path.join(
+            MODELS_DIR, f"xgb_scaler_{city_key}_{target_key}.pkl"
+        )
 
         with open(model_path, "wb") as f:
             pickle.dump(model, f)
         with open(scaler_path, "wb") as f:
             pickle.dump(scaler, f)
 
-        results.append({
-            "model":          "XGBoost",
-            "city":           city,
-            "target":         target,
-            "mae":            metrics["mae"],
-            "rmse":           metrics["rmse"],
-            "mape":           metrics["mape"],
-            "mape_threshold": "1.0 MW" if "cooling" in target else "0.1 MW",
-            "best_iteration": model.best_iteration,
-        })
+        results.append(
+            {
+                "model": "XGBoost",
+                "city": city,
+                "target": target,
+                "mae": metrics["mae"],
+                "rmse": metrics["rmse"],
+                "mape": metrics["mape"],
+                "mape_threshold": "1.0 MW" if "cooling" in target else "0.1 MW",
+                "best_iteration": model.best_iteration,
+            }
+        )
 
     return pd.DataFrame(results)
 

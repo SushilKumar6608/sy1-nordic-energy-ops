@@ -33,6 +33,7 @@ from src.evals.budget_guard import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _guard(**kwargs) -> BudgetGuard:
     """Create a BudgetGuard with small defaults for easy testing."""
     return BudgetGuard(
@@ -45,6 +46,7 @@ def _guard(**kwargs) -> BudgetGuard:
 # ---------------------------------------------------------------------------
 # Initialisation
 # ---------------------------------------------------------------------------
+
 
 class TestBudgetGuardInit:
     def test_defaults_are_set(self):
@@ -79,15 +81,18 @@ class TestBudgetGuardInit:
 # check_budget - under limits
 # ---------------------------------------------------------------------------
 
+
 class TestCheckBudgetUnderLimit:
     def test_no_raise_when_zero_usage(self):
         guard = _guard()
-        guard.check_budget()   # Must not raise
+        guard.check_budget()  # Must not raise
 
     def test_no_raise_just_below_token_cap(self):
         guard = _guard(max_tokens=1_000)
-        guard.record_usage(input_tokens=400, output_tokens=599, model="claude-haiku-5-5")
-        guard.check_budget()   # 999 < 1000 - must not raise
+        guard.record_usage(
+            input_tokens=400, output_tokens=599, model="claude-haiku-5-5"
+        )
+        guard.check_budget()  # 999 < 1000 - must not raise
 
     def test_no_raise_just_below_cost_cap(self):
         guard = _guard(max_tokens=100_000, max_cost_usd=1.00)
@@ -99,6 +104,7 @@ class TestCheckBudgetUnderLimit:
 # ---------------------------------------------------------------------------
 # check_budget - over limits
 # ---------------------------------------------------------------------------
+
 
 class TestCheckBudgetOverLimit:
     def test_raises_when_token_cap_reached(self):
@@ -149,6 +155,7 @@ class TestCheckBudgetOverLimit:
 # record_usage accumulation
 # ---------------------------------------------------------------------------
 
+
 class TestRecordUsage:
     def test_tokens_accumulate(self):
         guard = _guard()
@@ -160,14 +167,20 @@ class TestRecordUsage:
 
     def test_cost_accumulates(self):
         guard = _guard()
-        guard.record_usage(input_tokens=1_000, output_tokens=0, model="claude-haiku-5-5")
-        guard.record_usage(input_tokens=1_000, output_tokens=0, model="claude-haiku-5-5")
+        guard.record_usage(
+            input_tokens=1_000, output_tokens=0, model="claude-haiku-5-5"
+        )
+        guard.record_usage(
+            input_tokens=1_000, output_tokens=0, model="claude-haiku-5-5"
+        )
         # haiku input rate is $0.00025/1k so 2x1000 = $0.00050
         assert guard.total_cost_usd == pytest.approx(0.00050, rel=1e-3)
 
     def test_returns_usage_record(self):
         guard = _guard()
-        rec = guard.record_usage(input_tokens=10, output_tokens=5, model="claude-haiku-5-5")
+        rec = guard.record_usage(
+            input_tokens=10, output_tokens=5, model="claude-haiku-5-5"
+        )
         assert isinstance(rec, UsageRecord)
         assert rec.input_tokens == 10
         assert rec.output_tokens == 5
@@ -189,12 +202,13 @@ class TestRecordUsage:
         r1 = guard.usage_records()
         r1.append("extra")
         r2 = guard.usage_records()
-        assert len(r2) == 1   # Original list unmodified
+        assert len(r2) == 1  # Original list unmodified
 
 
 # ---------------------------------------------------------------------------
 # remaining_tokens and remaining_cost_usd
 # ---------------------------------------------------------------------------
+
 
 class TestRemainingBudget:
     def test_remaining_tokens_full_at_start(self):
@@ -203,7 +217,9 @@ class TestRemainingBudget:
 
     def test_remaining_tokens_decreases(self):
         guard = _guard(max_tokens=1_000)
-        guard.record_usage(input_tokens=300, output_tokens=100, model="claude-haiku-5-5")
+        guard.record_usage(
+            input_tokens=300, output_tokens=100, model="claude-haiku-5-5"
+        )
         assert guard.remaining_tokens() == 600
 
     def test_remaining_tokens_clamps_at_zero(self):
@@ -225,16 +241,21 @@ class TestRemainingBudget:
 # reset()
 # ---------------------------------------------------------------------------
 
+
 class TestReset:
     def test_reset_zeroes_tokens(self):
         guard = _guard()
-        guard.record_usage(input_tokens=500, output_tokens=200, model="claude-haiku-5-5")
+        guard.record_usage(
+            input_tokens=500, output_tokens=200, model="claude-haiku-5-5"
+        )
         guard.reset()
         assert guard.total_tokens == 0
 
     def test_reset_zeroes_cost(self):
         guard = _guard()
-        guard.record_usage(input_tokens=500, output_tokens=200, model="claude-haiku-5-5")
+        guard.record_usage(
+            input_tokens=500, output_tokens=200, model="claude-haiku-5-5"
+        )
         guard.reset()
         assert guard.total_cost_usd == 0.0
 
@@ -248,12 +269,13 @@ class TestReset:
         guard = _guard(max_tokens=10)
         guard.record_usage(input_tokens=5, output_tokens=5, model="claude-haiku-5-5")
         guard.reset()
-        guard.check_budget()   # Must not raise
+        guard.check_budget()  # Must not raise
 
 
 # ---------------------------------------------------------------------------
 # summary()
 # ---------------------------------------------------------------------------
+
 
 class TestSummary:
     def test_summary_is_string(self):
@@ -274,6 +296,7 @@ class TestSummary:
 # ---------------------------------------------------------------------------
 # _lookup_rate
 # ---------------------------------------------------------------------------
+
 
 class TestLookupRate:
     def test_haiku_rate(self):
@@ -303,6 +326,7 @@ class TestLookupRate:
 # Thread safety
 # ---------------------------------------------------------------------------
 
+
 class TestThreadSafety:
     def test_concurrent_record_usage(self):
         guard = _guard(max_tokens=1_000_000, max_cost_usd=100.0)
@@ -311,7 +335,9 @@ class TestThreadSafety:
         def worker():
             try:
                 for _ in range(100):
-                    guard.record_usage(input_tokens=1, output_tokens=1, model="claude-haiku-5-5")
+                    guard.record_usage(
+                        input_tokens=1, output_tokens=1, model="claude-haiku-5-5"
+                    )
             except Exception as exc:
                 errors.append(exc)
 

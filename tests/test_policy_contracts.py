@@ -31,14 +31,15 @@ from src.policy.engine import TOOL_PERMISSIONS
 # Registry completeness
 # ---------------------------------------------------------------------------
 
+
 class TestRegistryCompleteness:
     def test_all_permission_tools_have_contracts(self):
         """Every tool in TOOL_PERMISSIONS must have a contract in TOOL_CONTRACTS."""
         # get_grid_topology and retrieve_rag_context are read stubs without contracts yet
         for tool in TOOL_CONTRACTS:
-            assert tool in TOOL_PERMISSIONS, (
-                f"{tool} has a contract but no permission tier"
-            )
+            assert (
+                tool in TOOL_PERMISSIONS
+            ), f"{tool} has a contract but no permission tier"
 
     def test_contract_registry_has_input_and_output(self):
         for tool_name, (InputModel, OutputModel) in TOOL_CONTRACTS.items():
@@ -49,6 +50,7 @@ class TestRegistryCompleteness:
 # ---------------------------------------------------------------------------
 # GetDemandForecastInput
 # ---------------------------------------------------------------------------
+
 
 class TestGetDemandForecastInput:
     def test_valid(self):
@@ -62,16 +64,21 @@ class TestGetDemandForecastInput:
 
     def test_horizon_too_large(self):
         with pytest.raises(ValidationError):
-            GetDemandForecastInput(city="Oslo", target="heating_demand_mw", horizon_hours=200)
+            GetDemandForecastInput(
+                city="Oslo", target="heating_demand_mw", horizon_hours=200
+            )
 
     def test_horizon_zero(self):
         with pytest.raises(ValidationError):
-            GetDemandForecastInput(city="Oslo", target="heating_demand_mw", horizon_hours=0)
+            GetDemandForecastInput(
+                city="Oslo", target="heating_demand_mw", horizon_hours=0
+            )
 
 
 # ---------------------------------------------------------------------------
 # GetNodeStatusInput
 # ---------------------------------------------------------------------------
+
 
 class TestGetNodeStatusInput:
     def test_valid_node_zero(self):
@@ -94,6 +101,7 @@ class TestGetNodeStatusInput:
 # ---------------------------------------------------------------------------
 # SetAlertThresholdInput
 # ---------------------------------------------------------------------------
+
 
 class TestSetAlertThresholdInput:
     def test_valid(self):
@@ -125,6 +133,7 @@ class TestSetAlertThresholdInput:
 # AcknowledgeIncidentInput
 # ---------------------------------------------------------------------------
 
+
 class TestAcknowledgeIncidentInput:
     def test_valid(self):
         m = AcknowledgeIncidentInput(
@@ -154,6 +163,7 @@ class TestAcknowledgeIncidentInput:
 # ---------------------------------------------------------------------------
 # DispatchMaintenanceCrewInput
 # ---------------------------------------------------------------------------
+
 
 class TestDispatchMaintenanceCrewInput:
     def test_valid(self):
@@ -214,6 +224,7 @@ class TestDispatchMaintenanceCrewInput:
 # ---------------------------------------------------------------------------
 # IsolateGridSegmentInput
 # ---------------------------------------------------------------------------
+
 
 class TestIsolateGridSegmentInput:
     def test_valid(self):

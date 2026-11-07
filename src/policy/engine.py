@@ -23,18 +23,18 @@ class PermissionTier(str, Enum):
 # Tool registry: maps tool name -> permission tier
 TOOL_PERMISSIONS: dict[str, PermissionTier] = {
     # Read tools (Phase 1 stubs - expanded as tools are added)
-    "get_demand_forecast":          PermissionTier.READ,
-    "get_anomaly_summary":          PermissionTier.READ,
-    "get_grid_topology":            PermissionTier.READ,
-    "get_node_status":              PermissionTier.READ,
-    "query_fault_ontology":         PermissionTier.READ,
-    "retrieve_rag_context":         PermissionTier.READ,
+    "get_demand_forecast": PermissionTier.READ,
+    "get_anomaly_summary": PermissionTier.READ,
+    "get_grid_topology": PermissionTier.READ,
+    "get_node_status": PermissionTier.READ,
+    "query_fault_ontology": PermissionTier.READ,
+    "retrieve_rag_context": PermissionTier.READ,
     # Reversible write tools
-    "set_alert_threshold":          PermissionTier.REVERSIBLE,
-    "acknowledge_incident":         PermissionTier.REVERSIBLE,
+    "set_alert_threshold": PermissionTier.REVERSIBLE,
+    "acknowledge_incident": PermissionTier.REVERSIBLE,
     # Irreversible write tools
-    "dispatch_maintenance_crew":    PermissionTier.IRREVERSIBLE,
-    "isolate_grid_segment":         PermissionTier.IRREVERSIBLE,
+    "dispatch_maintenance_crew": PermissionTier.IRREVERSIBLE,
+    "isolate_grid_segment": PermissionTier.IRREVERSIBLE,
 }
 
 

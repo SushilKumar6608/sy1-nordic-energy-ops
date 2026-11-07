@@ -13,13 +13,13 @@ import torch
 
 load_dotenv()
 
-MODEL         = "claude-sonnet-4-6"
-MAX_TOKENS    = 1024
-MODELS_DIR    = os.path.join(os.path.dirname(__file__), "..", "..", "models", "saved")
+MODEL = "claude-sonnet-4-6"
+MAX_TOKENS = 1024
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "models", "saved")
 PROCESSED_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "processed")
 
 _retriever = None
-_device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def get_retriever() -> RAGRetriever:
@@ -29,14 +29,15 @@ def get_retriever() -> RAGRetriever:
     return _retriever
 
 
-def call_claude(system_prompt: str, user_message: str,
-                max_tokens: int = MAX_TOKENS) -> str:
-    client   = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+def call_claude(
+    system_prompt: str, user_message: str, max_tokens: int = MAX_TOKENS
+) -> str:
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     response = client.messages.create(
-        model      = MODEL,
-        max_tokens = max_tokens,
-        system     = system_prompt,
-        messages   = [{"role": "user", "content": user_message}],
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
     )
     return response.content[0].text.strip()
 
@@ -45,45 +46,58 @@ def call_claude(system_prompt: str, user_message: str,
 # AGENT STATE
 # =============================================================================
 
+
 class AgentState(dict):
     pass
 
 
-def make_state(city, target, anomaly_score, actual_mw, forecast_mw,
-               deviation_mw, temperature_c, timestamp,
-               return_temp_c=None, dual_grid_event=False,
-               spatial_cluster=False, phase_inverted=False) -> AgentState:
-    return AgentState({
-        "city":            city,
-        "target":          target,
-        "anomaly_score":   anomaly_score,
-        "actual_mw":       actual_mw,
-        "forecast_mw":     forecast_mw,
-        "deviation_mw":    deviation_mw,
-        "temperature_c":   temperature_c,
-        "timestamp":       timestamp,
-        "return_temp_c":   return_temp_c,
-        "dual_grid_event": dual_grid_event,
-        "spatial_cluster": spatial_cluster,
-        "phase_inverted":  phase_inverted,
-        "demand_summary":  "",
-        "intent":          "",         # from intent router
-        "rag_context":     "",
-        "rag_tier":        "",         # HIGH / PARTIAL / MISS
-        "hyde_paragraph":  "",         # HyDE generated paragraph (audit trail)
-        "fault_nodes":     "[]",
-        "diagnosis":       "",
-        "recommendation":  "",
-        "final_report":    "",
-    })
+def make_state(
+    city,
+    target,
+    anomaly_score,
+    actual_mw,
+    forecast_mw,
+    deviation_mw,
+    temperature_c,
+    timestamp,
+    return_temp_c=None,
+    dual_grid_event=False,
+    spatial_cluster=False,
+    phase_inverted=False,
+) -> AgentState:
+    return AgentState(
+        {
+            "city": city,
+            "target": target,
+            "anomaly_score": anomaly_score,
+            "actual_mw": actual_mw,
+            "forecast_mw": forecast_mw,
+            "deviation_mw": deviation_mw,
+            "temperature_c": temperature_c,
+            "timestamp": timestamp,
+            "return_temp_c": return_temp_c,
+            "dual_grid_event": dual_grid_event,
+            "spatial_cluster": spatial_cluster,
+            "phase_inverted": phase_inverted,
+            "demand_summary": "",
+            "intent": "",  # from intent router
+            "rag_context": "",
+            "rag_tier": "",  # HIGH / PARTIAL / MISS
+            "hyde_paragraph": "",  # HyDE generated paragraph (audit trail)
+            "fault_nodes": "[]",
+            "diagnosis": "",
+            "recommendation": "",
+            "final_report": "",
+        }
+    )
 
 
 # =============================================================================
 # INTENT ROUTER AGENT
 # =============================================================================
 
-def intent_router_agent(state: AgentState,
-                         user_query: str = None) -> tuple:
+
+def intent_router_agent(state: AgentState, user_query: str = None) -> tuple:
     """
     Intent Router: classifies the query BEFORE hitting the RAG database.
 
@@ -99,7 +113,10 @@ def intent_router_agent(state: AgentState,
     """
     if user_query is None:
         # For pipeline-driven anomaly events, always use SPECIFIC_OPERATIONAL
-        return "SPECIFIC_OPERATIONAL", "Anomaly event — requires documented fault procedures"
+        return (
+            "SPECIFIC_OPERATIONAL",
+            "Anomaly event — requires documented fault procedures",
+        )
 
     system_prompt = """You are an intent classification router for a Nordic
 district heating and cooling grid operations AI system.
@@ -132,11 +149,11 @@ Respond with ONLY a JSON object:
     response = call_claude(system_prompt, f"Query: {user_query}", max_tokens=150)
 
     try:
-        parsed    = json.loads(response)
-        intent    = parsed.get("intent", "HYBRID")
+        parsed = json.loads(response)
+        intent = parsed.get("intent", "HYBRID")
         rationale = parsed.get("rationale", "")
     except json.JSONDecodeError:
-        intent    = "HYBRID"
+        intent = "HYBRID"
         rationale = "Router parse error — defaulting to HYBRID"
 
     return intent, rationale
@@ -146,8 +163,8 @@ Respond with ONLY a JSON object:
 # PARAMETRIC FALLBACK
 # =============================================================================
 
-def parametric_engineering_response(query: str,
-                                     anomaly_context: str = "") -> str:
+
+def parametric_engineering_response(query: str, anomaly_context: str = "") -> str:
     """
     Parametric fallback: answer using Claude's engineering training knowledge.
     Strict instruction to NOT invent specific grid topology facts.
@@ -189,6 +206,7 @@ not documented procedures for this specific grid."""
 # DEMAND AGENTS
 # =============================================================================
 
+
 def heating_agent(state: AgentState) -> AgentState:
     system_prompt = """You are a district heating grid specialist at a Nordic
 energy operations centre. Summarise heating demand anomalies precisely and
@@ -197,15 +215,27 @@ not supply failure. Dual-grid events may indicate data centre thermal dumps.
 Spatial clusters suggest spring thaw. Inverse diurnal patterns suggest sensor
 drift. Do not include recommendations."""
 
-    pct       = (state["deviation_mw"] / max(state["forecast_mw"], 1.0)) * 100
-    ret_info  = (f"\nReturn line temperature: {state['return_temp_c']:.1f}°C"
-                 if state.get("return_temp_c") else "")
-    dual_info = ("\n*** DUAL-GRID EVENT: Simultaneous cooling anomaly ***"
-                 if state.get("dual_grid_event") else "")
-    clus_info = ("\n*** SPATIAL CLUSTER: Multiple adjacent nodes affected ***"
-                 if state.get("spatial_cluster") else "")
-    phase_inf = ("\n*** PHASE INVERSION: Demand pattern inverted vs diurnal profile ***"
-                 if state.get("phase_inverted") else "")
+    pct = (state["deviation_mw"] / max(state["forecast_mw"], 1.0)) * 100
+    ret_info = (
+        f"\nReturn line temperature: {state['return_temp_c']:.1f}°C"
+        if state.get("return_temp_c")
+        else ""
+    )
+    dual_info = (
+        "\n*** DUAL-GRID EVENT: Simultaneous cooling anomaly ***"
+        if state.get("dual_grid_event")
+        else ""
+    )
+    clus_info = (
+        "\n*** SPATIAL CLUSTER: Multiple adjacent nodes affected ***"
+        if state.get("spatial_cluster")
+        else ""
+    )
+    phase_inf = (
+        "\n*** PHASE INVERSION: Demand pattern inverted vs diurnal profile ***"
+        if state.get("phase_inverted")
+        else ""
+    )
 
     msg = f"""Summarise this heating demand anomaly:
 City: {state["city"]} | Timestamp: {state["timestamp"]}
@@ -226,12 +256,18 @@ energy operations centre. Summarise cooling demand anomalies precisely.
 Pay special attention to winter shutdown violations, data centre thermal dumps,
 and anti-cyclical demand pulses. Be precise, factual, brief."""
 
-    pct       = (state["deviation_mw"] / max(state["forecast_mw"], 0.1)) * 100
-    winter    = state["temperature_c"] < 12.0
-    dual_info = ("\n*** DUAL-GRID EVENT: Simultaneous heating anomaly — possible thermal dump ***"
-                 if state.get("dual_grid_event") else "")
-    ret_info  = (f"\nReturn line temperature: {state['return_temp_c']:.1f}°C"
-                 if state.get("return_temp_c") else "")
+    pct = (state["deviation_mw"] / max(state["forecast_mw"], 0.1)) * 100
+    winter = state["temperature_c"] < 12.0
+    dual_info = (
+        "\n*** DUAL-GRID EVENT: Simultaneous heating anomaly — possible thermal dump ***"
+        if state.get("dual_grid_event")
+        else ""
+    )
+    ret_info = (
+        f"\nReturn line temperature: {state['return_temp_c']:.1f}°C"
+        if state.get("return_temp_c")
+        else ""
+    )
 
     msg = f"""Summarise this cooling demand anomaly:
 City: {state["city"]} | Timestamp: {state["timestamp"]}
@@ -250,8 +286,8 @@ Deviation: {state["deviation_mw"]:+.1f} MW ({pct:+.1f}%){ret_info}{dual_info}
 # RAG RETRIEVAL AGENT (with Intent Router + HyDE + Confidence Tiers)
 # =============================================================================
 
-def rag_retrieval_agent(state: AgentState,
-                         user_query: str = None) -> AgentState:
+
+def rag_retrieval_agent(state: AgentState, user_query: str = None) -> AgentState:
     """
     Multi-tier RAG retrieval agent.
 
@@ -267,12 +303,12 @@ def rag_retrieval_agent(state: AgentState,
 
     # Step 1: intent routing
     intent, rationale = intent_router_agent(state, user_query)
-    state["intent"]   = intent
+    state["intent"] = intent
     print(f"  Intent: {intent} — {rationale}")
 
     target_type = "heating" if "heating" in state["target"] else "cooling"
-    deviation   = state["deviation_mw"]
-    temp        = state["temperature_c"]
+    deviation = state["deviation_mw"]
+    temp = state["temperature_c"]
 
     # Build domain query from anomaly context
     if user_query:
@@ -280,9 +316,13 @@ def rag_retrieval_agent(state: AgentState,
     elif state.get("dual_grid_event"):
         domain_query = "data centre thermal dump return line temperature district heating cooling simultaneous"
     elif state.get("phase_inverted"):
-        domain_query = "inverse diurnal sensor drift calibration phase inversion meter fault"
+        domain_query = (
+            "inverse diurnal sensor drift calibration phase inversion meter fault"
+        )
     elif state.get("spatial_cluster"):
-        domain_query = "spring thaw pipe stress freeze thaw cycling adjacent nodes spatial cluster"
+        domain_query = (
+            "spring thaw pipe stress freeze thaw cycling adjacent nodes spatial cluster"
+        )
     elif target_type == "cooling" and temp < 12.0:
         domain_query = f"stuck valve cooling winter shutdown {state['city']} temperature below zero"
     elif target_type == "heating" and deviation < 0 and temp < -2.0:
@@ -292,41 +332,54 @@ def rag_retrieval_agent(state: AgentState,
     elif deviation < 0 and abs(deviation) / max(state["forecast_mw"], 1.0) > 0.3:
         domain_query = f"{target_type} supply failure demand drop control system misfire {state['city']}"
     else:
-        domain_query = f"{target_type} demand deviation insulation sensor drift {state['city']}"
+        domain_query = (
+            f"{target_type} demand deviation insulation sensor drift {state['city']}"
+        )
 
-    rag_context  = ""
-    rag_tier     = "MISS"
-    hyde_para    = ""
+    rag_context = ""
+    rag_tier = "MISS"
+    hyde_para = ""
 
     # Step 2-4: route by intent
     if intent == "GENERAL_ENGINEERING":
         # Skip RAG entirely — go straight to parametric
-        rag_tier    = "PARAMETRIC"
-        rag_context = ("NOTE: Query classified as general engineering question. "
-                       "Responding from engineering principles only — "
-                       "no specific grid documentation consulted.\n\n")
-        anomaly_ctx = (f"City: {state['city']}, "
-                       f"Target: {state['target']}, "
-                       f"Deviation: {state['deviation_mw']:+.1f} MW, "
-                       f"Temperature: {state['temperature_c']:.1f}°C")
+        rag_tier = "PARAMETRIC"
+        rag_context = (
+            "NOTE: Query classified as general engineering question. "
+            "Responding from engineering principles only — "
+            "no specific grid documentation consulted.\n\n"
+        )
+        anomaly_ctx = (
+            f"City: {state['city']}, "
+            f"Target: {state['target']}, "
+            f"Deviation: {state['deviation_mw']:+.1f} MW, "
+            f"Temperature: {state['temperature_c']:.1f}°C"
+        )
         rag_context += parametric_engineering_response(domain_query, anomaly_ctx)
 
     elif intent in ("SPECIFIC_OPERATIONAL", "HYBRID"):
         # HyDE + FAISS retrieval
         results, hyde_para, rag_tier = retriever.query_with_hyde(
-            domain_query, top_k=2, category_filter="fault_types")
+            domain_query, top_k=2, category_filter="fault_types"
+        )
 
-        proc_results  = retriever.query(
+        proc_results = retriever.query(
             f"operator response procedure {target_type} {state['city']}",
-            top_k=1, category_filter="procedures")
-        city_results  = retriever.query(
+            top_k=1,
+            category_filter="procedures",
+        )
+        city_results = retriever.query(
             f"city operations {state['city']} grid vulnerabilities",
-            top_k=1, category_filter="city_operations")
+            top_k=1,
+            category_filter="city_operations",
+        )
 
         if state.get("return_temp_c") and state["return_temp_c"] > 55.0:
             equip_results = retriever.query(
                 "return line temperature management PHE fouling thermal dump thresholds",
-                top_k=1, category_filter="equipment")
+                top_k=1,
+                category_filter="equipment",
+            )
             all_results = results + proc_results + city_results + equip_results
         else:
             all_results = results + proc_results + city_results
@@ -335,16 +388,20 @@ def rag_retrieval_agent(state: AgentState,
 
         # If MISS and HYBRID — supplement with parametric
         if rag_tier == "MISS":
-            anomaly_ctx = (f"City: {state['city']}, "
-                           f"Deviation: {state['deviation_mw']:+.1f} MW, "
-                           f"Temperature: {state['temperature_c']:.1f}°C")
+            anomaly_ctx = (
+                f"City: {state['city']}, "
+                f"Deviation: {state['deviation_mw']:+.1f} MW, "
+                f"Temperature: {state['temperature_c']:.1f}°C"
+            )
             parametric = parametric_engineering_response(domain_query, anomaly_ctx)
-            rag_context += (f"\n\n--- PARAMETRIC ENGINEERING KNOWLEDGE ---\n"
-                            f"(Knowledge base miss — reasoning from engineering "
-                            f"principles)\n\n{parametric}")
+            rag_context += (
+                f"\n\n--- PARAMETRIC ENGINEERING KNOWLEDGE ---\n"
+                f"(Knowledge base miss — reasoning from engineering "
+                f"principles)\n\n{parametric}"
+            )
 
-    state["rag_context"]    = rag_context
-    state["rag_tier"]       = rag_tier
+    state["rag_context"] = rag_context
+    state["rag_tier"] = rag_tier
     state["hyde_paragraph"] = hyde_para
     return state
 
@@ -353,19 +410,25 @@ def rag_retrieval_agent(state: AgentState,
 # GNN LOCALISATION AGENT
 # =============================================================================
 
+
 def gnn_localisation_agent(state: AgentState) -> AgentState:
     try:
-        fault_df   = infer_fault_nodes(
-            city=state["city"], anomaly_score=state["anomaly_score"],
-            device=_device, top_k=3)
+        fault_df = infer_fault_nodes(
+            city=state["city"],
+            anomaly_score=state["anomaly_score"],
+            device=_device,
+            top_k=3,
+        )
         nodes_list = []
         for _, row in fault_df.iterrows():
-            nodes_list.append({
-                "node_id":           int(row["node_id"]),
-                "type":              str(row["type"]),
-                "capacity_mw":       round(float(row["capacity_mw"]), 3),
-                "fault_probability": round(float(row["fault_probability"]), 4),
-            })
+            nodes_list.append(
+                {
+                    "node_id": int(row["node_id"]),
+                    "type": str(row["type"]),
+                    "capacity_mw": round(float(row["capacity_mw"]), 3),
+                    "fault_probability": round(float(row["fault_probability"]), 4),
+                }
+            )
         state["fault_nodes"] = json.dumps(nodes_list)
     except Exception as e:
         state["fault_nodes"] = json.dumps([{"error": f"GNN failed: {str(e)}"}])
@@ -375,6 +438,7 @@ def gnn_localisation_agent(state: AgentState) -> AgentState:
 # =============================================================================
 # DIAGNOSIS AGENT
 # =============================================================================
+
 
 def diagnosis_agent(state: AgentState) -> AgentState:
     system_prompt = """You are a senior grid diagnostician at a Nordic energy
@@ -389,12 +453,18 @@ Note the RAG confidence tier when citing documentation.
 State confidence: low/medium/high. 3-4 sentences."""
 
     fault_nodes = json.loads(state["fault_nodes"])
-    nodes_text  = "\n".join([
-        f"  Node {n.get('node_id','?')} ({n.get('type','?')}): "
-        f"prob={n.get('fault_probability',0):.4f}, "
-        f"cap={n.get('capacity_mw',0):.2f} MW"
-        for n in fault_nodes if "error" not in n
-    ]) or "  GNN localisation unavailable"
+    nodes_text = (
+        "\n".join(
+            [
+                f"  Node {n.get('node_id','?')} ({n.get('type','?')}): "
+                f"prob={n.get('fault_probability',0):.4f}, "
+                f"cap={n.get('capacity_mw',0):.2f} MW"
+                for n in fault_nodes
+                if "error" not in n
+            ]
+        )
+        or "  GNN localisation unavailable"
+    )
 
     extra = ""
     if state.get("return_temp_c"):
@@ -406,8 +476,9 @@ State confidence: low/medium/high. 3-4 sentences."""
     if state.get("phase_inverted"):
         extra += "\nPHASE INVERSION: demand pattern is temporally inverted"
 
-    rag_note = (f"\nRAG confidence tier: {state['rag_tier']} "
-                f"(Intent: {state['intent']})")
+    rag_note = (
+        f"\nRAG confidence tier: {state['rag_tier']} " f"(Intent: {state['intent']})"
+    )
 
     msg = f"""Diagnose this grid anomaly:
 
@@ -430,6 +501,7 @@ Most likely root cause, supporting evidence, and confidence level?"""
 # RECOMMENDATION AGENT
 # =============================================================================
 
+
 def recommendation_agent(state: AgentState) -> AgentState:
     system_prompt = """You are a grid operations coordinator at a Nordic energy
 operations centre. Generate clear prioritised operator action plans (max 5 steps).
@@ -444,11 +516,13 @@ Time-sensitive actions first.
   principles not documented grid-specific procedures."""
 
     fault_nodes = json.loads(state["fault_nodes"])
-    top_node    = (fault_nodes[0] if fault_nodes and
-                   "error" not in fault_nodes[0] else None)
-    node_hint   = (f"GNN: node {top_node['node_id']} ({top_node['type']}) "
-                   f"p={top_node['fault_probability']:.3f}"
-                   if top_node else "GNN unavailable")
+    top_node = fault_nodes[0] if fault_nodes and "error" not in fault_nodes[0] else None
+    node_hint = (
+        f"GNN: node {top_node['node_id']} ({top_node['type']}) "
+        f"p={top_node['fault_probability']:.3f}"
+        if top_node
+        else "GNN unavailable"
+    )
 
     flags = []
     if state.get("dual_grid_event"):
@@ -460,8 +534,10 @@ Time-sensitive actions first.
     if state.get("phase_inverted"):
         flags.append("PHASE INVERSION — attempt remote recalibration first")
     if state["rag_tier"] in ("MISS", "PARAMETRIC"):
-        flags.append("KNOWLEDGE BASE MISS — actions based on general engineering "
-                     "principles, verify against local SCADA before executing")
+        flags.append(
+            "KNOWLEDGE BASE MISS — actions based on general engineering "
+            "principles, verify against local SCADA before executing"
+        )
 
     msg = f"""Action plan for:
 City: {state["city"]} | {"Heating" if "heating" in state["target"] else "Cooling"}
@@ -483,6 +559,7 @@ Numbered action plan, max 5 steps."""
 # =============================================================================
 # SUPERVISOR AGENT
 # =============================================================================
+
 
 def supervisor_agent(state: AgentState) -> AgentState:
     system_prompt = """You are the AI supervisor of a Nordic energy grid
@@ -523,11 +600,22 @@ Include a DATA SOURCE note stating whether diagnosis used documented procedures
 # PIPELINE ORCHESTRATION
 # =============================================================================
 
-def run_pipeline(city, target, anomaly_score, actual_mw, forecast_mw,
-                 deviation_mw, temperature_c, timestamp,
-                 return_temp_c=None, dual_grid_event=False,
-                 spatial_cluster=False, phase_inverted=False,
-                 user_query=None) -> AgentState:
+
+def run_pipeline(
+    city,
+    target,
+    anomaly_score,
+    actual_mw,
+    forecast_mw,
+    deviation_mw,
+    temperature_c,
+    timestamp,
+    return_temp_c=None,
+    dual_grid_event=False,
+    spatial_cluster=False,
+    phase_inverted=False,
+    user_query=None,
+) -> AgentState:
     """
     Full multi-agent pipeline with Intent Router + HyDE + Confidence Tiers.
 
@@ -541,10 +629,20 @@ def run_pipeline(city, target, anomaly_score, actual_mw, forecast_mw,
         print(f"User query: {user_query}")
     print(f"{'='*60}")
 
-    state = make_state(city, target, anomaly_score, actual_mw, forecast_mw,
-                       deviation_mw, temperature_c, timestamp,
-                       return_temp_c, dual_grid_event, spatial_cluster,
-                       phase_inverted)
+    state = make_state(
+        city,
+        target,
+        anomaly_score,
+        actual_mw,
+        forecast_mw,
+        deviation_mw,
+        temperature_c,
+        timestamp,
+        return_temp_c,
+        dual_grid_event,
+        spatial_cluster,
+        phase_inverted,
+    )
 
     print("\n[1/6] Running demand agent...")
     state = heating_agent(state) if "heating" in target else cooling_agent(state)
@@ -572,7 +670,7 @@ def run_pipeline(city, target, anomaly_score, actual_mw, forecast_mw,
 
     print(f"\n{'='*60}")
     print("FINAL INCIDENT REPORT:")
-    print("="*60)
+    print("=" * 60)
     print(state["final_report"])
 
     return state
@@ -587,27 +685,39 @@ if __name__ == "__main__":
     # Test 1: Pipe burst (SPECIFIC_OPERATIONAL — HIGH RAG confidence expected)
     print("\n>>> TEST 1: Pipe burst — Gothenburg")
     run_pipeline(
-        city="Gothenburg", target="heating_demand_mw",
-        anomaly_score=0.82, actual_mw=312.4, forecast_mw=198.6,
-        deviation_mw=113.8, temperature_c=-8.3,
+        city="Gothenburg",
+        target="heating_demand_mw",
+        anomaly_score=0.82,
+        actual_mw=312.4,
+        forecast_mw=198.6,
+        deviation_mw=113.8,
+        temperature_c=-8.3,
         timestamp="2024-01-15T03:00:00+00:00",
     )
 
     # Test 2: Stuck valve — winter (SPECIFIC_OPERATIONAL)
     print("\n\n>>> TEST 2: Stuck valve — Kiruna")
     run_pipeline(
-        city="Kiruna", target="cooling_demand_mw",
-        anomaly_score=0.91, actual_mw=0.09, forecast_mw=0.0,
-        deviation_mw=0.09, temperature_c=-24.5,
+        city="Kiruna",
+        target="cooling_demand_mw",
+        anomaly_score=0.91,
+        actual_mw=0.09,
+        forecast_mw=0.0,
+        deviation_mw=0.09,
+        temperature_c=-24.5,
         timestamp="2024-02-03T14:00:00+00:00",
     )
 
     # Test 3: PHE fouling (SPECIFIC_OPERATIONAL — negative deviation + return temp)
     print("\n\n>>> TEST 3: Heat exchanger fouling — Uppsala")
     run_pipeline(
-        city="Uppsala", target="heating_demand_mw",
-        anomaly_score=0.74, actual_mw=68.3, forecast_mw=98.7,
-        deviation_mw=-30.4, temperature_c=-11.2,
+        city="Uppsala",
+        target="heating_demand_mw",
+        anomaly_score=0.74,
+        actual_mw=68.3,
+        forecast_mw=98.7,
+        deviation_mw=-30.4,
+        temperature_c=-11.2,
         timestamp="2024-01-22T08:00:00+00:00",
         return_temp_c=63.5,
     )
@@ -615,19 +725,28 @@ if __name__ == "__main__":
     # Test 4: Data centre thermal dump (dual-grid, Level 4)
     print("\n\n>>> TEST 4: Data centre thermal dump — Stockholm")
     run_pipeline(
-        city="Stockholm", target="heating_demand_mw",
-        anomaly_score=0.95, actual_mw=124.3, forecast_mw=487.2,
-        deviation_mw=-362.9, temperature_c=-6.1,
+        city="Stockholm",
+        target="heating_demand_mw",
+        anomaly_score=0.95,
+        actual_mw=124.3,
+        forecast_mw=487.2,
+        deviation_mw=-362.9,
+        temperature_c=-6.1,
         timestamp="2024-03-08T11:30:00+00:00",
-        return_temp_c=67.8, dual_grid_event=True,
+        return_temp_c=67.8,
+        dual_grid_event=True,
     )
 
     # Test 5: Inverse diurnal sensor drift
     print("\n\n>>> TEST 5: Inverse diurnal sensor drift — Malmö")
     run_pipeline(
-        city="Malmö", target="heating_demand_mw",
-        anomaly_score=0.61, actual_mw=187.4, forecast_mw=142.1,
-        deviation_mw=45.3, temperature_c=2.4,
+        city="Malmö",
+        target="heating_demand_mw",
+        anomaly_score=0.61,
+        actual_mw=187.4,
+        forecast_mw=142.1,
+        deviation_mw=45.3,
+        temperature_c=2.4,
         timestamp="2024-04-03T02:30:00+00:00",
         phase_inverted=True,
     )
@@ -635,9 +754,13 @@ if __name__ == "__main__":
     # Test 6: Spring thaw pipe stress (spatial cluster)
     print("\n\n>>> TEST 6: Spring thaw — Umeå")
     run_pipeline(
-        city="Umeå", target="heating_demand_mw",
-        anomaly_score=0.77, actual_mw=89.4, forecast_mw=71.2,
-        deviation_mw=18.2, temperature_c=1.8,
+        city="Umeå",
+        target="heating_demand_mw",
+        anomaly_score=0.77,
+        actual_mw=89.4,
+        forecast_mw=71.2,
+        deviation_mw=18.2,
+        temperature_c=1.8,
         timestamp="2024-04-18T10:00:00+00:00",
         spatial_cluster=True,
     )
@@ -645,18 +768,26 @@ if __name__ == "__main__":
     # Test 7: Control system misfire (synchronised demand drop)
     print("\n\n>>> TEST 7: Control system misfire — Stockholm")
     run_pipeline(
-        city="Stockholm", target="heating_demand_mw",
-        anomaly_score=0.88, actual_mw=198.3, forecast_mw=521.7,
-        deviation_mw=-323.4, temperature_c=-9.4,
+        city="Stockholm",
+        target="heating_demand_mw",
+        anomaly_score=0.88,
+        actual_mw=198.3,
+        forecast_mw=521.7,
+        deviation_mw=-323.4,
+        temperature_c=-9.4,
         timestamp="2024-01-30T18:00:00+00:00",
     )
 
     # Test 8: GENERAL_ENGINEERING query — Intent Router should bypass RAG
     print("\n\n>>> TEST 8: General engineering query (no specific fault)")
     run_pipeline(
-        city="Stockholm", target="heating_demand_mw",
-        anomaly_score=0.45, actual_mw=310.2, forecast_mw=290.1,
-        deviation_mw=20.1, temperature_c=-3.2,
+        city="Stockholm",
+        target="heating_demand_mw",
+        anomaly_score=0.45,
+        actual_mw=310.2,
+        forecast_mw=290.1,
+        deviation_mw=20.1,
+        temperature_c=-3.2,
         timestamp="2024-02-10T09:00:00+00:00",
         user_query="What are the thermodynamic consequences of high return line temperatures on overall grid efficiency?",
     )
@@ -664,9 +795,13 @@ if __name__ == "__main__":
     # Test 9: Out-of-knowledge-base query — HyDE should trigger MISS + parametric
     print("\n\n>>> TEST 9: Out-of-KB query (HyDE + parametric fallback)")
     run_pipeline(
-        city="Gothenburg", target="heating_demand_mw",
-        anomaly_score=0.55, actual_mw=215.3, forecast_mw=198.1,
-        deviation_mw=17.2, temperature_c=-1.4,
+        city="Gothenburg",
+        target="heating_demand_mw",
+        anomaly_score=0.55,
+        actual_mw=215.3,
+        forecast_mw=198.1,
+        deviation_mw=17.2,
+        temperature_c=-1.4,
         timestamp="2024-03-01T07:00:00+00:00",
         user_query="What is the recommended bolt torque specification for the bypass valve actuator flange on a DN200 substation connection?",
     )

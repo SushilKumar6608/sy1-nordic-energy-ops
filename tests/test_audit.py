@@ -26,6 +26,7 @@ from src.policy.audit import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def isolated_audit_log(tmp_path, monkeypatch):
     """
@@ -33,6 +34,7 @@ def isolated_audit_log(tmp_path, monkeypatch):
     This ensures tests never write to the real audit_logs/ directory.
     """
     import src.policy.audit as audit_module
+
     log_path = tmp_path / "audit_logs" / "audit.jsonl"
     monkeypatch.setattr(audit_module, "AUDIT_LOG_PATH", log_path)
     yield log_path
@@ -55,6 +57,7 @@ def _make_entry(tool_name="get_demand_forecast", outcome="SUCCESS", **kwargs):
 # Basic write
 # ---------------------------------------------------------------------------
 
+
 class TestWriteAuditEntry:
     def test_creates_log_file(self, isolated_audit_log):
         _make_entry()
@@ -76,9 +79,16 @@ class TestWriteAuditEntry:
         _make_entry()
         entry = json.loads(isolated_audit_log.read_text().strip())
         required = {
-            "audit_id", "timestamp", "actor", "tool_name",
-            "inputs", "policy_decision", "trace_id",
-            "outcome", "chain_hash", "prev_hash",
+            "audit_id",
+            "timestamp",
+            "actor",
+            "tool_name",
+            "inputs",
+            "policy_decision",
+            "trace_id",
+            "outcome",
+            "chain_hash",
+            "prev_hash",
         }
         assert required.issubset(entry.keys())
 
@@ -98,6 +108,7 @@ class TestWriteAuditEntry:
 # ---------------------------------------------------------------------------
 # Sensitive field redaction
 # ---------------------------------------------------------------------------
+
 
 class TestRedaction:
     def test_approval_token_redacted(self, isolated_audit_log):
@@ -134,6 +145,7 @@ class TestRedaction:
 # ---------------------------------------------------------------------------
 # Chain integrity
 # ---------------------------------------------------------------------------
+
 
 class TestChainIntegrity:
     def test_empty_log_is_valid(self, isolated_audit_log):
@@ -194,6 +206,7 @@ class TestChainIntegrity:
 # ---------------------------------------------------------------------------
 # get_entry_by_id
 # ---------------------------------------------------------------------------
+
 
 class TestGetEntryById:
     def test_retrieves_correct_entry(self, isolated_audit_log):

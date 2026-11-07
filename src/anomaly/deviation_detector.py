@@ -6,6 +6,7 @@ from xgboost import XGBRegressor
 from sklearn.preprocessing import StandardScaler
 
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "forecasting"))
 from prepare_features import load_and_prepare, FEATURE_COLS
 
@@ -18,16 +19,21 @@ PROCESSED_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "pro
 # Minimum floor: 5% of city peak to avoid fixed MW floors breaking small cities
 DEVIATION_THRESHOLD_FRAC_HEATING = 0.10
 DEVIATION_THRESHOLD_FRAC_COOLING = 0.20
-MIN_ABSOLUTE_DEVIATION_FRAC      = 0.05
+MIN_ABSOLUTE_DEVIATION_FRAC = 0.05
 
 
 def load_xgboost_model(city: str, target: str):
     """Load saved XGBoost model and scaler for a city and target."""
-    city_key = (city.replace(" ", "_").replace("-", "_")
-                    .replace("å", "a").replace("ä", "a").replace("ö", "o"))
+    city_key = (
+        city.replace(" ", "_")
+        .replace("-", "_")
+        .replace("å", "a")
+        .replace("ä", "a")
+        .replace("ö", "o")
+    )
     target_key = "heat" if "heating" in target else "cool"
 
-    model_path  = os.path.join(MODELS_DIR, f"xgb_{city_key}_{target_key}.pkl")
+    model_path = os.path.join(MODELS_DIR, f"xgb_{city_key}_{target_key}.pkl")
     scaler_path = os.path.join(MODELS_DIR, f"xgb_scaler_{city_key}_{target_key}.pkl")
 
     with open(model_path, "rb") as f:
@@ -70,14 +76,16 @@ def detect_anomalies_for_target(target: str) -> pd.DataFrame:
 
         # Ground truth anomaly labels from demand generator
         anomaly_col = "anomaly_heating" if "heating" in target else "anomaly_cooling"
-        y_true_labels = test[anomaly_col].values if anomaly_col in test.columns else None
+        y_true_labels = (
+            test[anomaly_col].values if anomaly_col in test.columns else None
+        )
 
         model, scaler = load_xgboost_model(city, target)
         X_test_scaled = scaler.transform(X_test)
         y_forecast = np.maximum(model.predict(X_test_scaled), 0.0)
 
         # Compute deviation
-        deviation     = y_true - y_forecast
+        deviation = y_true - y_forecast
         abs_deviation = np.abs(deviation)
 
         # Peak demand — use 99th percentile of actual demand
@@ -93,8 +101,7 @@ def detect_anomalies_for_target(target: str) -> pd.DataFrame:
             frac = DEVIATION_THRESHOLD_FRAC_COOLING
 
         threshold_mw = max(
-            MIN_ABSOLUTE_DEVIATION_FRAC * peak_demand,
-            frac * peak_demand
+            MIN_ABSOLUTE_DEVIATION_FRAC * peak_demand, frac * peak_demand
         )
 
         detected = (abs_deviation > threshold_mw).astype(int)
@@ -107,14 +114,17 @@ def detect_anomalies_for_target(target: str) -> pd.DataFrame:
             tn = int(((detected == 0) & (y_true_labels == 0)).sum())
 
             precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-            recall    = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-            f1        = (2 * precision * recall / (precision + recall)
-                         if (precision + recall) > 0 else 0.0)
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if (precision + recall) > 0
+                else 0.0
+            )
         else:
             tp = fp = fn = tn = 0
             precision = recall = f1 = 0.0
 
-        n_detected  = int(detected.sum())
+        n_detected = int(detected.sum())
         n_true_anom = int(y_true_labels.sum()) if y_true_labels is not None else 0
 
         print(f"  Peak demand (99th pct): {peak_demand:.1f} MW")
@@ -123,19 +133,24 @@ def detect_anomalies_for_target(target: str) -> pd.DataFrame:
         print(f"  Precision={precision:.3f} | Recall={recall:.3f} | F1={f1:.3f}")
         print(f"  TP={tp} | FP={fp} | FN={fn} | TN={tn}")
 
-        all_results.append({
-            "city":           city,
-            "target":         target,
-            "peak_demand_mw": round(peak_demand, 2),
-            "threshold_mw":   round(threshold_mw, 2),
-            "threshold_frac": frac,
-            "n_detected":     n_detected,
-            "n_true_anom":    n_true_anom,
-            "precision":      round(precision, 4),
-            "recall":         round(recall, 4),
-            "f1":             round(f1, 4),
-            "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        })
+        all_results.append(
+            {
+                "city": city,
+                "target": target,
+                "peak_demand_mw": round(peak_demand, 2),
+                "threshold_mw": round(threshold_mw, 2),
+                "threshold_frac": frac,
+                "n_detected": n_detected,
+                "n_true_anom": n_true_anom,
+                "precision": round(precision, 4),
+                "recall": round(recall, 4),
+                "f1": round(f1, 4),
+                "tp": tp,
+                "fp": fp,
+                "fn": fn,
+                "tn": tn,
+            }
+        )
 
     return pd.DataFrame(all_results)
 
@@ -160,7 +175,11 @@ def run_detection() -> pd.DataFrame:
 
 if __name__ == "__main__":
     print("=== Deviation-Based Anomaly Detector ===")
-    print(f"Heating threshold: {DEVIATION_THRESHOLD_FRAC_HEATING*100:.0f}% of peak demand")
-    print(f"Cooling threshold: {DEVIATION_THRESHOLD_FRAC_COOLING*100:.0f}% of peak demand")
+    print(
+        f"Heating threshold: {DEVIATION_THRESHOLD_FRAC_HEATING*100:.0f}% of peak demand"
+    )
+    print(
+        f"Cooling threshold: {DEVIATION_THRESHOLD_FRAC_COOLING*100:.0f}% of peak demand"
+    )
     print(f"Minimum floor: {MIN_ABSOLUTE_DEVIATION_FRAC*100:.0f}% of city peak demand")
     run_detection()

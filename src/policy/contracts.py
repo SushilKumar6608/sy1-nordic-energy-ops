@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, field_validator
 # Shared types
 # ---------------------------------------------------------------------------
 
+
 class FaultType(str, Enum):
     PIPE_BURST = "pipe_burst"
     SUPPLY_FAILURE = "supply_failure"
@@ -52,6 +53,7 @@ class ToolError(BaseModel):
 # ---------------------------------------------------------------------------
 # Read tools
 # ---------------------------------------------------------------------------
+
 
 class GetDemandForecastInput(BaseModel):
     city: str = Field(..., description="City name, e.g. Stockholm")
@@ -98,6 +100,7 @@ class GetNodeStatusOutput(BaseModel):
 # Reversible write tools
 # ---------------------------------------------------------------------------
 
+
 class SetAlertThresholdInput(BaseModel):
     node_id: int = Field(..., ge=0, le=136)
     threshold_mw: float = Field(..., gt=0.0, lt=5000.0)
@@ -136,12 +139,17 @@ class AcknowledgeIncidentOutput(BaseModel):
 # Irreversible write tools
 # ---------------------------------------------------------------------------
 
+
 class DispatchMaintenanceCrewInput(BaseModel):
     node_id: int = Field(..., ge=0, le=136)
     fault_type: FaultType
     priority: Priority
-    justification: str = Field(..., min_length=20, max_length=1000,
-                                description="Why this dispatch is warranted")
+    justification: str = Field(
+        ...,
+        min_length=20,
+        max_length=1000,
+        description="Why this dispatch is warranted",
+    )
     approval_token: str = Field(..., description="Token from logged human approval")
     idempotency_key: str
 
@@ -167,8 +175,9 @@ class DispatchMaintenanceCrewOutput(BaseModel):
 class IsolateGridSegmentInput(BaseModel):
     segment_id: str = Field(..., description="Segment identifier, e.g. SEG-023-024")
     reason: str = Field(..., min_length=20, max_length=1000)
-    affected_customer_count: int = Field(..., ge=0,
-                                          description="Estimated customers affected")
+    affected_customer_count: int = Field(
+        ..., ge=0, description="Estimated customers affected"
+    )
     approval_token: str
     idempotency_key: str
 
@@ -188,11 +197,14 @@ class IsolateGridSegmentOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 TOOL_CONTRACTS: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
-    "get_demand_forecast":       (GetDemandForecastInput,        GetDemandForecastOutput),
-    "get_anomaly_summary":       (GetAnomalySummaryInput,        GetAnomalySummaryOutput),
-    "get_node_status":           (GetNodeStatusInput,            GetNodeStatusOutput),
-    "set_alert_threshold":       (SetAlertThresholdInput,        SetAlertThresholdOutput),
-    "acknowledge_incident":      (AcknowledgeIncidentInput,      AcknowledgeIncidentOutput),
-    "dispatch_maintenance_crew": (DispatchMaintenanceCrewInput,  DispatchMaintenanceCrewOutput),
-    "isolate_grid_segment":      (IsolateGridSegmentInput,       IsolateGridSegmentOutput),
+    "get_demand_forecast": (GetDemandForecastInput, GetDemandForecastOutput),
+    "get_anomaly_summary": (GetAnomalySummaryInput, GetAnomalySummaryOutput),
+    "get_node_status": (GetNodeStatusInput, GetNodeStatusOutput),
+    "set_alert_threshold": (SetAlertThresholdInput, SetAlertThresholdOutput),
+    "acknowledge_incident": (AcknowledgeIncidentInput, AcknowledgeIncidentOutput),
+    "dispatch_maintenance_crew": (
+        DispatchMaintenanceCrewInput,
+        DispatchMaintenanceCrewOutput,
+    ),
+    "isolate_grid_segment": (IsolateGridSegmentInput, IsolateGridSegmentOutput),
 }

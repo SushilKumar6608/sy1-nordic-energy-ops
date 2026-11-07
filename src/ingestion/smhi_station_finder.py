@@ -1,13 +1,19 @@
-#smhi_station_finder.py
+# smhi_station_finder.py
 import requests
 import json
 
 SMHI_BASE_URL = "https://opendata-download-metobs.smhi.se/api/version/latest"
 
 CITIES_OF_INTEREST = [
-    "stockholm", "göteborg", "malmö", "uppsala",
-    "umeå", "kiruna", "åre"
+    "stockholm",
+    "göteborg",
+    "malmö",
+    "uppsala",
+    "umeå",
+    "kiruna",
+    "åre",
 ]
+
 
 def find_stations():
     """
@@ -35,12 +41,15 @@ def find_stations():
         active = station.get("active", False)
         for city in CITIES_OF_INTEREST:
             if city in name:
-                print(f"City match: {city.upper()} | Station: {station.get('name')} | ID: {station_id} | Active: {active}")
+                print(
+                    f"City match: {city.upper()} | Station: {station.get('name')} | ID: {station_id} | Active: {active}"
+                )
 
     print("\n--- Full station list (all active) ---")
     for station in stations:
         if station.get("active"):
             print(f"ID: {station.get('id')} | Name: {station.get('name')}")
+
 
 if __name__ == "__main__":
     find_stations()

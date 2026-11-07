@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 from prepare_features import load_and_prepare, FEATURE_COLS
 
@@ -47,16 +48,15 @@ def mape(y_true: np.ndarray, y_pred: np.ndarray, target: str) -> float:
 
 
 def evaluate(y_true: np.ndarray, y_pred: np.ndarray, target: str) -> dict:
-    mae      = mean_absolute_error(y_true, y_pred)
-    rmse     = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
     mape_val = mape(y_true, y_pred, target)
     return {"mae": round(mae, 4), "rmse": round(rmse, 4), "mape": round(mape_val, 4)}
 
 
-def build_pooled_sequences(X_hourly: np.ndarray,
-                           y_hourly: np.ndarray,
-                           pool_hours: int,
-                           seq_len: int):
+def build_pooled_sequences(
+    X_hourly: np.ndarray, y_hourly: np.ndarray, pool_hours: int, seq_len: int
+):
     """
     Build (X_seq, y_target) pairs using 3-hour pooled lookback windows.
 
@@ -76,8 +76,10 @@ def build_pooled_sequences(X_hourly: np.ndarray,
     y_targets = []
 
     for t in range(lookback, n):
-        raw_window = X_hourly[t - lookback: t]
-        pooled = raw_window.reshape(seq_len, pool_hours, raw_window.shape[1]).mean(axis=1)
+        raw_window = X_hourly[t - lookback : t]
+        pooled = raw_window.reshape(seq_len, pool_hours, raw_window.shape[1]).mean(
+            axis=1
+        )
         X_seqs.append(pooled)
         y_targets.append(y_hourly[t])
 
@@ -87,7 +89,7 @@ def build_pooled_sequences(X_hourly: np.ndarray,
 class PooledSequenceDataset(Dataset):
     def __init__(self, X_seq: np.ndarray, y: np.ndarray):
         self.X = torch.tensor(X_seq, dtype=torch.float32)
-        self.y = torch.tensor(y,     dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.float32)
 
     def __len__(self):
         return len(self.y)
@@ -97,7 +99,9 @@ class PooledSequenceDataset(Dataset):
 
 
 class LSTMForecaster(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int, dropout: float):
+    def __init__(
+        self, input_size: int, hidden_size: int, num_layers: int, dropout: float
+    ):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -131,35 +135,45 @@ def train_lstm_for_target(target: str) -> pd.DataFrame:
         print(f"\nTraining {city}...")
 
         train = splits["train"]
-        val   = splits["val"]
-        test  = splits["test"]
+        val = splits["val"]
+        test = splits["test"]
 
         X_train_raw = train[FEATURE_COLS].values
         y_train_raw = train[target].values
-        X_val_raw   = val[FEATURE_COLS].values
-        y_val_raw   = val[target].values
-        X_test_raw  = test[FEATURE_COLS].values
-        y_test_raw  = test[target].values
+        X_val_raw = val[FEATURE_COLS].values
+        y_val_raw = val[target].values
+        X_test_raw = test[FEATURE_COLS].values
+        y_test_raw = test[target].values
 
         scaler = StandardScaler()
         X_train_raw = scaler.fit_transform(X_train_raw)
-        X_val_raw   = scaler.transform(X_val_raw)
-        X_test_raw  = scaler.transform(X_test_raw)
+        X_val_raw = scaler.transform(X_val_raw)
+        X_test_raw = scaler.transform(X_test_raw)
 
-        print(f"  Building pooled sequences (pool={POOL_HOURS}h, seq_len={SEQUENCE_LENGTH})...")
-        X_train_seq, y_train_seq = build_pooled_sequences(X_train_raw, y_train_raw, POOL_HOURS, SEQUENCE_LENGTH)
-        X_val_seq,   y_val_seq   = build_pooled_sequences(X_val_raw,   y_val_raw,   POOL_HOURS, SEQUENCE_LENGTH)
-        X_test_seq,  y_test_seq  = build_pooled_sequences(X_test_raw,  y_test_raw,  POOL_HOURS, SEQUENCE_LENGTH)
+        print(
+            f"  Building pooled sequences (pool={POOL_HOURS}h, seq_len={SEQUENCE_LENGTH})..."
+        )
+        X_train_seq, y_train_seq = build_pooled_sequences(
+            X_train_raw, y_train_raw, POOL_HOURS, SEQUENCE_LENGTH
+        )
+        X_val_seq, y_val_seq = build_pooled_sequences(
+            X_val_raw, y_val_raw, POOL_HOURS, SEQUENCE_LENGTH
+        )
+        X_test_seq, y_test_seq = build_pooled_sequences(
+            X_test_raw, y_test_raw, POOL_HOURS, SEQUENCE_LENGTH
+        )
 
-        print(f"  Train sequences: {len(X_train_seq)} | Val: {len(X_val_seq)} | Test: {len(X_test_seq)}")
+        print(
+            f"  Train sequences: {len(X_train_seq)} | Val: {len(X_val_seq)} | Test: {len(X_test_seq)}"
+        )
 
         train_ds = PooledSequenceDataset(X_train_seq, y_train_seq)
-        val_ds   = PooledSequenceDataset(X_val_seq,   y_val_seq)
-        test_ds  = PooledSequenceDataset(X_test_seq,  y_test_seq)
+        val_ds = PooledSequenceDataset(X_val_seq, y_val_seq)
+        test_ds = PooledSequenceDataset(X_test_seq, y_test_seq)
 
         train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=False)
-        val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False)
-        test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False)
+        val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
+        test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
 
         model = LSTMForecaster(
             input_size=len(FEATURE_COLS),
@@ -174,9 +188,9 @@ def train_lstm_for_target(target: str) -> pd.DataFrame:
             optimizer, patience=5, factor=0.5
         )
 
-        best_val_loss       = float("inf")
-        best_state          = None
-        patience_counter    = 0
+        best_val_loss = float("inf")
+        best_state = None
+        patience_counter = 0
         early_stop_patience = 7
 
         for epoch in range(EPOCHS):
@@ -201,18 +215,20 @@ def train_lstm_for_target(target: str) -> pd.DataFrame:
                     val_loss += criterion(pred, y_batch).item() * len(X_batch)
 
             train_loss /= len(train_ds)
-            val_loss   /= len(val_ds)
+            val_loss /= len(val_ds)
             scheduler.step(val_loss)
 
             if val_loss < best_val_loss:
-                best_val_loss    = val_loss
-                best_state       = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                best_val_loss = val_loss
+                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
                 patience_counter = 0
             else:
                 patience_counter += 1
 
             if (epoch + 1) % 5 == 0:
-                print(f"  Epoch {epoch+1:02d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}")
+                print(
+                    f"  Epoch {epoch+1:02d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}"
+                )
 
             if patience_counter >= early_stop_patience:
                 print(f"  Early stopping at epoch {epoch+1}")
@@ -234,48 +250,66 @@ def train_lstm_for_target(target: str) -> pd.DataFrame:
         metrics = evaluate(y_true, y_pred, target)
 
         threshold_note = "MAPE@>1MW" if "cooling" in target else "MAPE@>0.1MW"
-        print(f"  MAE={metrics['mae']:.3f} MW | RMSE={metrics['rmse']:.3f} MW | "
-              f"{threshold_note}={metrics['mape']:.2f}%")
+        print(
+            f"  MAE={metrics['mae']:.3f} MW | RMSE={metrics['rmse']:.3f} MW | "
+            f"{threshold_note}={metrics['mape']:.2f}%"
+        )
 
-        city_key   = (city.replace(" ", "_").replace("-", "_")
-                         .replace("å", "a").replace("ä", "a").replace("ö", "o"))
+        city_key = (
+            city.replace(" ", "_")
+            .replace("-", "_")
+            .replace("å", "a")
+            .replace("ä", "a")
+            .replace("ö", "o")
+        )
         target_key = "heat" if "heating" in target else "cool"
 
-        model_path  = os.path.join(MODELS_DIR, f"lstm_{city_key}_{target_key}.pt")
-        scaler_path = os.path.join(MODELS_DIR, f"lstm_scaler_{city_key}_{target_key}.pkl")
+        model_path = os.path.join(MODELS_DIR, f"lstm_{city_key}_{target_key}.pt")
+        scaler_path = os.path.join(
+            MODELS_DIR, f"lstm_scaler_{city_key}_{target_key}.pkl"
+        )
 
-        torch.save({
-            "model_state":     best_state,
-            "input_size":      len(FEATURE_COLS),
-            "hidden_size":     HIDDEN_SIZE,
-            "num_layers":      NUM_LAYERS,
-            "dropout":         DROPOUT,
-            "pool_hours":      POOL_HOURS,
-            "sequence_length": SEQUENCE_LENGTH,
-        }, model_path)
+        torch.save(
+            {
+                "model_state": best_state,
+                "input_size": len(FEATURE_COLS),
+                "hidden_size": HIDDEN_SIZE,
+                "num_layers": NUM_LAYERS,
+                "dropout": DROPOUT,
+                "pool_hours": POOL_HOURS,
+                "sequence_length": SEQUENCE_LENGTH,
+            },
+            model_path,
+        )
 
         with open(scaler_path, "wb") as f:
             pickle.dump(scaler, f)
 
-        results.append({
-            "model":          "LSTM_3hPool",
-            "city":           city,
-            "target":         target,
-            "mae":            metrics["mae"],
-            "rmse":           metrics["rmse"],
-            "mape":           metrics["mape"],
-            "mape_threshold": "1.0 MW" if "cooling" in target else "0.1 MW",
-            "seq_len":        SEQUENCE_LENGTH,
-            "pool_hours":     POOL_HOURS,
-        })
+        results.append(
+            {
+                "model": "LSTM_3hPool",
+                "city": city,
+                "target": target,
+                "mae": metrics["mae"],
+                "rmse": metrics["rmse"],
+                "mape": metrics["mape"],
+                "mape_threshold": "1.0 MW" if "cooling" in target else "0.1 MW",
+                "seq_len": SEQUENCE_LENGTH,
+                "pool_hours": POOL_HOURS,
+            }
+        )
 
     return pd.DataFrame(results)
 
 
 if __name__ == "__main__":
     print("=== LSTM Forecaster -- Option C: 3-Hour Pooled Sequences ===")
-    print(f"Strategy: {LOOKBACK_DAYS}-day lookback, {POOL_HOURS}h pooling -> {SEQUENCE_LENGTH} timesteps")
-    print(f"Epochs: {EPOCHS} | Batch: {BATCH_SIZE} | Hidden: {HIDDEN_SIZE} | Layers: {NUM_LAYERS}")
+    print(
+        f"Strategy: {LOOKBACK_DAYS}-day lookback, {POOL_HOURS}h pooling -> {SEQUENCE_LENGTH} timesteps"
+    )
+    print(
+        f"Epochs: {EPOCHS} | Batch: {BATCH_SIZE} | Hidden: {HIDDEN_SIZE} | Layers: {NUM_LAYERS}"
+    )
 
     results_heat = train_lstm_for_target("heating_demand_mw")
     results_cool = train_lstm_for_target("cooling_demand_mw")

@@ -6,32 +6,36 @@ import time
 SMHI_BASE_URL = "https://opendata-download-metobs.smhi.se/api/version/latest"
 
 STATIONS = {
-    "stockholm":  {"id": 98230,  "name": "Stockholm", "wind_station_id": 97200},
-    "gothenburg": {"id": 71420,  "name": "Gothenburg"},
-    "malmo":      {"id": 52350,  "name": "Malmö"},
-    "uppsala":    {"id": 97510,  "name": "Uppsala"},
-    "umea":       {"id": 140480, "name": "Umeå"},
-    "kiruna":     {"id": 180940, "name": "Kiruna"},
-    "are":        {"id": 134110, "name": "Åre-Östersund"},
+    "stockholm": {"id": 98230, "name": "Stockholm", "wind_station_id": 97200},
+    "gothenburg": {"id": 71420, "name": "Gothenburg"},
+    "malmo": {"id": 52350, "name": "Malmö"},
+    "uppsala": {"id": 97510, "name": "Uppsala"},
+    "umea": {"id": 140480, "name": "Umeå"},
+    "kiruna": {"id": 180940, "name": "Kiruna"},
+    "are": {"id": 134110, "name": "Åre-Östersund"},
 }
 
 PARAMETERS = {
     "temperature": 1,
-    "wind_speed":  4,
-    "humidity":    6,
+    "wind_speed": 4,
+    "humidity": 6,
 }
 
 RAW_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "raw")
 
 
-def fetch_station_parameter(station_id: int, parameter: int, period: str = "corrected-archive") -> pd.DataFrame:
+def fetch_station_parameter(
+    station_id: int, parameter: int, period: str = "corrected-archive"
+) -> pd.DataFrame:
     # corrected-archive only supports CSV, not JSON
     url = f"{SMHI_BASE_URL}/parameter/{parameter}/station/{station_id}/period/{period}/data.csv"
     print(f"  Fetching parameter {parameter} from station {station_id}...")
     response = requests.get(url, timeout=30)
 
     if response.status_code != 200:
-        print(f"  WARNING: Status {response.status_code} for station {station_id}, parameter {parameter}")
+        print(
+            f"  WARNING: Status {response.status_code} for station {station_id}, parameter {parameter}"
+        )
         return pd.DataFrame()
 
     # SMHI CSV has metadata rows at the top before the actual data
@@ -44,10 +48,13 @@ def fetch_station_parameter(station_id: int, parameter: int, period: str = "corr
             break
 
     if header_idx is None:
-        print(f"  WARNING: Could not find data header for station {station_id}, parameter {parameter}")
+        print(
+            f"  WARNING: Could not find data header for station {station_id}, parameter {parameter}"
+        )
         return pd.DataFrame()
 
     from io import StringIO
+
     data_str = "\n".join(lines[header_idx:])
     df = pd.read_csv(StringIO(data_str), sep=";", on_bad_lines="skip", low_memory=False)
 
@@ -60,15 +67,21 @@ def fetch_station_parameter(station_id: int, parameter: int, period: str = "corr
         df["timestamp"] = pd.to_datetime(
             df[date_col].astype(str) + " " + df[time_col].astype(str),
             utc=True,
-            errors="coerce"
+            errors="coerce",
         )
-        value_col = [c for c in df.columns if c not in (date_col, time_col, "Kvalitet", "timestamp")][0]
+        value_col = [
+            c
+            for c in df.columns
+            if c not in (date_col, time_col, "Kvalitet", "timestamp")
+        ][0]
         df = df[["timestamp", value_col]].rename(columns={value_col: "value"})
         df["value"] = pd.to_numeric(df["value"], errors="coerce")
         df = df.dropna(subset=["value", "timestamp"])
         df = df.set_index("timestamp").sort_index()
     except Exception as e:
-        print(f"  WARNING: Could not parse CSV for station {station_id}, parameter {parameter}: {e}")
+        print(
+            f"  WARNING: Could not parse CSV for station {station_id}, parameter {parameter}: {e}"
+        )
         return pd.DataFrame()
 
     return df
@@ -98,13 +111,12 @@ def fetch_all_stations(start_year: int = 2018, end_year: int = 2024) -> pd.DataF
                 print(f"  No data for {param_name} in {city_name}")
                 continue
 
-            df = df[
-                (df.index.year >= start_year) &
-                (df.index.year <= end_year)
-            ]
+            df = df[(df.index.year >= start_year) & (df.index.year <= end_year)]
 
             if df.empty:
-                print(f"  No data in range {start_year}-{end_year} for {param_name} in {city_name}")
+                print(
+                    f"  No data in range {start_year}-{end_year} for {param_name} in {city_name}"
+                )
                 continue
 
             city_data[param_name] = df["value"]
@@ -120,7 +132,9 @@ def fetch_all_stations(start_year: int = 2018, end_year: int = 2024) -> pd.DataF
         city_df = city_df.reset_index()
         city_df = city_df.dropna(subset=["temperature"])
 
-        print(f"  {city_name}: {len(city_df)} hourly records ({city_df['timestamp'].min()} to {city_df['timestamp'].max()})")
+        print(
+            f"  {city_name}: {len(city_df)} hourly records ({city_df['timestamp'].min()} to {city_df['timestamp'].max()})"
+        )
         all_frames.append(city_df)
 
     if not all_frames:

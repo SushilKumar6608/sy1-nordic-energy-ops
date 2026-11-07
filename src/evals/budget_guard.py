@@ -46,6 +46,7 @@ from typing import Optional
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class BudgetExceeded(Exception):
     """Raised when a session has exceeded its token or cost budget."""
 
@@ -66,18 +67,18 @@ class BudgetExceeded(Exception):
 
 # Format: model_prefix -> (input_per_1k, output_per_1k)
 _MODEL_RATES: dict[str, tuple[float, float]] = {
-    "claude-opus-5":        (0.015,  0.075),
-    "claude-sonnet-5":      (0.003,  0.015),
-    "claude-haiku-5":       (0.00025, 0.00125),
-    "claude-sonnet-4":      (0.003,  0.015),
-    "claude-haiku-4":       (0.00025, 0.00125),
-    "claude-3-5-sonnet":    (0.003,  0.015),
-    "claude-3-5-haiku":     (0.0008, 0.004),
-    "claude-3-opus":        (0.015,  0.075),
-    "claude-3-haiku":       (0.00025, 0.00125),
+    "claude-opus-5": (0.015, 0.075),
+    "claude-sonnet-5": (0.003, 0.015),
+    "claude-haiku-5": (0.00025, 0.00125),
+    "claude-sonnet-4": (0.003, 0.015),
+    "claude-haiku-4": (0.00025, 0.00125),
+    "claude-3-5-sonnet": (0.003, 0.015),
+    "claude-3-5-haiku": (0.0008, 0.004),
+    "claude-3-opus": (0.015, 0.075),
+    "claude-3-haiku": (0.00025, 0.00125),
 }
 
-_DEFAULT_RATE = (0.015, 0.075)   # Conservative fallback
+_DEFAULT_RATE = (0.015, 0.075)  # Conservative fallback
 
 
 def _lookup_rate(model: str) -> tuple[float, float]:
@@ -93,9 +94,11 @@ def _lookup_rate(model: str) -> tuple[float, float]:
 # Usage record
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class UsageRecord:
     """One LLM call's token usage."""
+
     input_tokens: int
     output_tokens: int
     model: str
@@ -105,6 +108,7 @@ class UsageRecord:
 # ---------------------------------------------------------------------------
 # Budget guard
 # ---------------------------------------------------------------------------
+
 
 class BudgetGuard:
     """
@@ -203,7 +207,9 @@ class BudgetGuard:
         Returns the UsageRecord for this call.
         """
         input_rate, output_rate = _lookup_rate(model)
-        call_cost = (input_tokens / 1000.0) * input_rate + (output_tokens / 1000.0) * output_rate
+        call_cost = (input_tokens / 1000.0) * input_rate + (
+            output_tokens / 1000.0
+        ) * output_rate
 
         record = UsageRecord(
             input_tokens=input_tokens,

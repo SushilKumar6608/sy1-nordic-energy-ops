@@ -45,17 +45,18 @@ from typing import Any, Generator, Optional
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _tracing_enabled() -> bool:
     """Return True only when both required Langfuse keys are set."""
     return bool(
-        os.environ.get("LANGFUSE_SECRET_KEY")
-        and os.environ.get("LANGFUSE_PUBLIC_KEY")
+        os.environ.get("LANGFUSE_SECRET_KEY") and os.environ.get("LANGFUSE_PUBLIC_KEY")
     )
 
 
 # ---------------------------------------------------------------------------
 # Span context objects
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PolicySpanContext:
@@ -65,9 +66,10 @@ class PolicySpanContext:
     Callers set the outcome after they have it; the context manager
     flushes/closes the underlying span on exit.
     """
+
     tool_name: str
     inputs: dict[str, Any]
-    _span: Any = field(default=None, repr=False)   # Langfuse span or None
+    _span: Any = field(default=None, repr=False)  # Langfuse span or None
     _enabled: bool = field(default=False, repr=False)
 
     def set_outcome(self, decision: Any) -> None:
@@ -78,7 +80,11 @@ class PolicySpanContext:
             self._span.update(
                 output={
                     "allowed": decision.allowed,
-                    "tier": decision.tier.value if hasattr(decision.tier, "value") else str(decision.tier),
+                    "tier": (
+                        decision.tier.value
+                        if hasattr(decision.tier, "value")
+                        else str(decision.tier)
+                    ),
                     "requires_approval": decision.requires_approval,
                     "reason": decision.reason,
                 }
@@ -111,6 +117,7 @@ class PolicySpanContext:
 # Tracer
 # ---------------------------------------------------------------------------
 
+
 class SY1Tracer:
     """
     Wraps Langfuse tracing for the SY1-Gov governance layer.
@@ -120,7 +127,7 @@ class SY1Tracer:
 
     def __init__(self, enabled: bool, langfuse_client: Any = None):
         self._enabled = enabled
-        self._lf = langfuse_client   # Langfuse client instance or None
+        self._lf = langfuse_client  # Langfuse client instance or None
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
