@@ -1,0 +1,16 @@
+# Core runtime
+langgraph>=0.2.0
+langchain-core>=0.3.0
+pydantic>=2.0.0
+
+# Evals
+pytest>=8.0.0
+pytest-cov>=5.0.0
+
+# Linting
+black>=24.0.0
+flake8>=7.0.0
+mypy>=1.9.0
+
+# Optional - import-safe when absent; listed here so CI can import the modules
+# langfuse is intentionally excluded: tracer degrades to no-op when missing

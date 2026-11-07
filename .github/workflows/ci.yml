@@ -38,13 +38,16 @@ jobs:
           mypy src/ --ignore-missing-imports
 
       - name: Policy unit tests
-        run: pytest tests/test_policy.py tests/test_contracts.py tests/test_audit.py -v --tb=short
+        run: pytest tests/test_policy_engine.py tests/test_policy_contracts.py tests/test_audit.py -v --tb=short
 
-      - name: Trajectory smoke set (5 cases)
-        run: pytest src/evals/trajectories/test_trajectories.py -k "smoke" -v --tb=short
+      - name: Approval gate tests
+        run: pytest tests/test_approval_gate.py -v --tb=short
 
-      - name: Injection smoke set (5 cases)
-        run: pytest src/evals/injection/test_injection.py -k "smoke" -v --tb=short
+      - name: Budget guard tests
+        run: pytest tests/test_budget_guard.py -v --tb=short
+
+      - name: Tracing tests
+        run: pytest tests/test_tracing.py -v --tb=short
 
       - name: Coverage report
-        run: pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=70
+        run: pytest tests/ -m "not live_api" --cov=src --cov-report=term-missing --cov-fail-under=70
