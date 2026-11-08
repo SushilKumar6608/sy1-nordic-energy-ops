@@ -1,24 +1,25 @@
 from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_all_three_tiers_reachable():
+def test_all_read_tools_are_allowed():
     engine = PolicyEngine()
-    tiers_found = set()
-    for tool in ["get_sensor_reading", "adjust_setpoint", "dispatch_maintenance_crew"]:
+    for tool in ["get_demand_forecast", "get_anomaly_summary", "get_grid_topology",
+                 "get_node_status", "query_fault_ontology", "retrieve_rag_context"]:
         decision = engine.evaluate(tool, {})
-        tiers_found.add(decision.tier)
-    assert PermissionTier.READ_ONLY in tiers_found
-    assert PermissionTier.IRREVERSIBLE in tiers_found
+        assert decision.allowed is True, f"{tool} should be allowed"
+        assert decision.tier == PermissionTier.READ
 
 
-def test_decision_tier_is_permission_tier():
+def test_all_irreversible_tools_require_approval():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    assert isinstance(decision.tier, PermissionTier)
-
-
-def test_decision_reason_is_string():
-    engine = PolicyEngine()
-    for tool in ["get_sensor_reading", "dispatch_maintenance_crew"]:
+    for tool in ["dispatch_maintenance_crew", "isolate_grid_segment"]:
         decision = engine.evaluate(tool, {})
-        assert isinstance(decision.reason, str)
+        assert decision.requires_approval is True
+        assert decision.allowed is False
+
+
+def test_reversible_tools_do_not_require_approval():
+    engine = PolicyEngine()
+    decision = engine.evaluate("set_alert_threshold", {})
+    assert decision.requires_approval is False
+    assert decision.allowed is True

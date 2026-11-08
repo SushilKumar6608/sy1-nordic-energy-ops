@@ -6,14 +6,14 @@ def test_permission_tier_has_three_values():
 
 
 def test_tiers_are_distinct():
-    assert PermissionTier.READ_ONLY != PermissionTier.ADVISORY
-    assert PermissionTier.ADVISORY != PermissionTier.IRREVERSIBLE
+    assert PermissionTier.READ != PermissionTier.REVERSIBLE
+    assert PermissionTier.REVERSIBLE != PermissionTier.IRREVERSIBLE
 
 
-def test_read_tool_is_read_only():
+def test_read_tool_tier():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    assert decision.tier == PermissionTier.READ_ONLY
+    decision = engine.evaluate("get_demand_forecast", {})
+    assert decision.tier == PermissionTier.READ
 
 
 def test_irreversible_tool_tier():

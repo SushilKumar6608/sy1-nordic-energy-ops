@@ -1,20 +1,21 @@
 from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_decision_reason_is_nonempty():
+def test_reversible_tool_is_allowed():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    assert len(decision.reason) > 0
+    decision = engine.evaluate("set_alert_threshold", {})
+    assert decision.allowed is True
+    assert decision.tier == PermissionTier.REVERSIBLE
 
 
-def test_advisory_tool_exists():
+def test_irreversible_tool_requires_approval():
     engine = PolicyEngine()
-    decision = engine.evaluate("adjust_setpoint", {})
-    assert decision.tier == PermissionTier.ADVISORY
+    decision = engine.evaluate("dispatch_maintenance_crew", {})
+    assert decision.requires_approval is True
+    assert decision.allowed is False
 
 
-def test_to_dict_contains_reason():
+def test_to_dict_has_all_keys():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    d = decision.to_dict()
-    assert "reason" in d
+    d = engine.evaluate("get_demand_forecast", {}).to_dict()
+    assert set(d.keys()) >= {"tool_name", "tier", "allowed", "reason", "requires_approval"}

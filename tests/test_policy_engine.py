@@ -1,16 +1,16 @@
 from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_read_only_tier_exists():
-    assert PermissionTier.READ_ONLY
+def test_read_tier_exists():
+    assert PermissionTier.READ.value == "read"
 
 
-def test_advisory_tier_exists():
-    assert PermissionTier.ADVISORY
+def test_reversible_tier_exists():
+    assert PermissionTier.REVERSIBLE.value == "reversible"
 
 
 def test_irreversible_tier_exists():
-    assert PermissionTier.IRREVERSIBLE
+    assert PermissionTier.IRREVERSIBLE.value == "irreversible"
 
 
 def test_policy_engine_instantiates():
@@ -18,23 +18,24 @@ def test_policy_engine_instantiates():
     assert engine is not None
 
 
-def test_known_read_tool_evaluates():
+def test_read_tool_is_allowed():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    assert decision is not None
+    decision = engine.evaluate("get_demand_forecast", {})
+    assert decision.allowed is True
+    assert decision.tier == PermissionTier.READ
 
 
-def test_decision_has_tier_and_reason():
+def test_decision_has_reason():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
-    assert hasattr(decision, "tier")
-    assert hasattr(decision, "reason")
+    decision = engine.evaluate("get_demand_forecast", {})
     assert isinstance(decision.reason, str)
+    assert len(decision.reason) > 0
 
 
 def test_decision_to_dict():
     engine = PolicyEngine()
-    decision = engine.evaluate("get_sensor_reading", {})
+    decision = engine.evaluate("get_demand_forecast", {})
     d = decision.to_dict()
     assert isinstance(d, dict)
     assert "tier" in d
+    assert "reason" in d
