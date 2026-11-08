@@ -1,4 +1,4 @@
-from src.policy.engine import PolicyEngine, PermissionTier
+from src.policy.engine import PolicyEngine
 
 
 def test_kill_switch_blocks_all_writes():
