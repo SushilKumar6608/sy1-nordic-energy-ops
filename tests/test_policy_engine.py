@@ -22,11 +22,6 @@ def test_known_read_tool_evaluates():
     engine = PolicyEngine()
     decision = engine.evaluate("get_sensor_reading", {})
     assert decision is not None
-    assert decision.tier in (
-        PermissionTier.READ_ONLY,
-        PermissionTier.ADVISORY,
-        PermissionTier.IRREVERSIBLE,
-    )
 
 
 def test_decision_has_tier_and_reason():

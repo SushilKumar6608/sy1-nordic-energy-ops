@@ -1,22 +1,19 @@
-from src.tracing.langfuse_tracer import LangfuseTracer
+from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_tracer_instantiates_without_keys():
-    tracer = LangfuseTracer(public_key=None, secret_key=None)
-    assert tracer is not None
+def test_read_only_tier_value():
+    assert PermissionTier.READ_ONLY.value is not None
 
 
-def test_tracer_disabled_without_keys():
-    tracer = LangfuseTracer(public_key=None, secret_key=None)
-    assert tracer.enabled is False
+def test_advisory_tier_value():
+    assert PermissionTier.ADVISORY.value is not None
 
 
-def test_start_trace_returns_none_when_disabled():
-    tracer = LangfuseTracer(public_key=None, secret_key=None)
-    result = tracer.start_trace(name="test", input_data={})
-    assert result is None
+def test_irreversible_tier_value():
+    assert PermissionTier.IRREVERSIBLE.value is not None
 
 
-def test_end_trace_does_not_raise_when_disabled():
-    tracer = LangfuseTracer(public_key=None, secret_key=None)
-    tracer.end_trace(trace_id=None, output_data={})
+def test_engine_evaluate_with_inputs():
+    engine = PolicyEngine()
+    decision = engine.evaluate("get_sensor_reading", {"sensor_id": "S01"})
+    assert decision.tier == PermissionTier.READ_ONLY

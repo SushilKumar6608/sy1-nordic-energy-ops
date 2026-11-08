@@ -2,15 +2,15 @@ from src.policy.engine import PolicyEngine, PermissionTier
 
 
 def test_permission_tier_has_three_values():
-    tiers = list(PermissionTier)
-    assert len(tiers) == 3
+    assert len(list(PermissionTier)) == 3
 
 
-def test_read_only_is_lowest_tier():
-    assert PermissionTier.READ_ONLY != PermissionTier.IRREVERSIBLE
+def test_tiers_are_distinct():
+    assert PermissionTier.READ_ONLY != PermissionTier.ADVISORY
+    assert PermissionTier.ADVISORY != PermissionTier.IRREVERSIBLE
 
 
-def test_policy_engine_evaluates_all_tiers():
+def test_read_tool_is_read_only():
     engine = PolicyEngine()
     decision = engine.evaluate("get_sensor_reading", {})
     assert decision.tier == PermissionTier.READ_ONLY

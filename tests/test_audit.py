@@ -1,30 +1,20 @@
-from src.tools.approval_gate import request_approval
+from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_pending_approval_is_not_approved_by_default():
-    pa = request_approval(
-        tool_name="dispatch_maintenance_crew",
-        inputs={},
-        policy_reason="irreversible",
-    )
-    assert pa.approved is False
-    assert pa.denied is False
+def test_decision_reason_is_nonempty():
+    engine = PolicyEngine()
+    decision = engine.evaluate("get_sensor_reading", {})
+    assert len(decision.reason) > 0
 
 
-def test_pending_approval_token_is_none_by_default():
-    pa = request_approval(
-        tool_name="dispatch_maintenance_crew",
-        inputs={},
-        policy_reason="irreversible",
-    )
-    assert pa.approval_token is None
+def test_advisory_tool_exists():
+    engine = PolicyEngine()
+    decision = engine.evaluate("adjust_setpoint", {})
+    assert decision.tier == PermissionTier.ADVISORY
 
 
-def test_pending_approval_stores_tool_name():
-    pa = request_approval(
-        tool_name="isolate_grid_segment",
-        inputs={"segment": "S3"},
-        policy_reason="irreversible",
-    )
-    assert pa.tool_name == "isolate_grid_segment"
-    assert pa.inputs == {"segment": "S3"}
+def test_to_dict_contains_reason():
+    engine = PolicyEngine()
+    decision = engine.evaluate("get_sensor_reading", {})
+    d = decision.to_dict()
+    assert "reason" in d

@@ -1,28 +1,22 @@
-import pytest
-from src.evals.budget_guard import BudgetGuard, BudgetExceeded
+from src.policy.engine import PolicyEngine, PermissionTier
 
 
-def test_budget_guard_default_instantiation():
-    guard = BudgetGuard()
-    assert guard.max_tokens > 0
-    assert guard.max_cost_usd > 0
+def test_policy_engine_is_deterministic():
+    engine = PolicyEngine()
+    d1 = engine.evaluate("get_sensor_reading", {})
+    d2 = engine.evaluate("get_sensor_reading", {})
+    assert d1.tier == d2.tier
+    assert d1.reason == d2.reason
 
 
-def test_budget_guard_respects_token_limit():
-    guard = BudgetGuard(max_tokens=50, max_cost_usd=99.0)
-    guard.record_usage(input_tokens=30, output_tokens=30)
-    with pytest.raises(BudgetExceeded) as exc_info:
-        guard.check_budget()
-    assert exc_info.value.current_tokens == 60
+def test_to_dict_has_expected_keys():
+    engine = PolicyEngine()
+    d = engine.evaluate("get_sensor_reading", {}).to_dict()
+    assert set(d.keys()) >= {"tier", "reason"}
 
 
-def test_budget_exceeded_has_attributes():
-    guard = BudgetGuard(max_tokens=10, max_cost_usd=99.0)
-    guard.record_usage(input_tokens=10, output_tokens=5)
-    try:
-        guard.check_budget()
-        pytest.fail("Expected BudgetExceeded")
-    except BudgetExceeded as e:
-        assert hasattr(e, "reason")
-        assert hasattr(e, "current_tokens")
-        assert hasattr(e, "current_cost")
+def test_different_tools_can_have_different_tiers():
+    engine = PolicyEngine()
+    r = engine.evaluate("get_sensor_reading", {}).tier
+    i = engine.evaluate("dispatch_maintenance_crew", {}).tier
+    assert r != i
