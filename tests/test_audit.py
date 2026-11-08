@@ -1,4 +1,4 @@
-from src.tools.approval_gate import request_approval, PendingApproval
+from src.tools.approval_gate import request_approval
 
 
 def test_pending_approval_is_not_approved_by_default():
