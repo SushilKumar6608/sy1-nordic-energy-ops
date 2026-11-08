@@ -3,8 +3,14 @@ from src.policy.engine import PolicyEngine, PermissionTier
 
 def test_all_read_tools_are_allowed():
     engine = PolicyEngine()
-    for tool in ["get_demand_forecast", "get_anomaly_summary", "get_grid_topology",
-                 "get_node_status", "query_fault_ontology", "retrieve_rag_context"]:
+    for tool in [
+        "get_demand_forecast",
+        "get_anomaly_summary",
+        "get_grid_topology",
+        "get_node_status",
+        "query_fault_ontology",
+        "retrieve_rag_context",
+    ]:
         decision = engine.evaluate(tool, {})
         assert decision.allowed is True, f"{tool} should be allowed"
         assert decision.tier == PermissionTier.READ

@@ -22,6 +22,7 @@ def test_kill_switch_deactivate_restores():
 
 def test_unknown_tool_raises_value_error():
     import pytest
+
     engine = PolicyEngine()
     with pytest.raises(ValueError):
         engine.evaluate("nonexistent_tool_xyz", {})

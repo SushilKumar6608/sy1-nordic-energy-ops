@@ -18,4 +18,10 @@ def test_irreversible_tool_requires_approval():
 def test_to_dict_has_all_keys():
     engine = PolicyEngine()
     d = engine.evaluate("get_demand_forecast", {}).to_dict()
-    assert set(d.keys()) >= {"tool_name", "tier", "allowed", "reason", "requires_approval"}
+    assert set(d.keys()) >= {
+        "tool_name",
+        "tier",
+        "allowed",
+        "reason",
+        "requires_approval",
+    }
