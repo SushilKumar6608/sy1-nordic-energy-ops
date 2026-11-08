@@ -1,0 +1,165 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix sy1:  <http://sy1-gov.local/ontology#> .
+
+# --- Ontology declaration ---
+<http://sy1-gov.local/ontology>
+    a owl:Ontology ;
+    rdfs:label "SY1 District Heating Fault Ontology" ;
+    rdfs:comment "OWL ontology for fault classification in district heating grids." .
+
+# --- Fault hierarchy ---
+sy1:Fault
+    a owl:Class ;
+    rdfs:label "Fault" ;
+    rdfs:comment "Root class for all fault types." .
+
+sy1:GridFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:Fault ;
+    rdfs:label "Grid Fault" .
+
+sy1:SensorFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:Fault ;
+    rdfs:label "Sensor Fault" .
+
+sy1:DemandFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:Fault ;
+    rdfs:label "Demand Fault" .
+
+sy1:PressureFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:GridFault ;
+    rdfs:label "Pressure Fault" .
+
+sy1:TemperatureFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:GridFault ;
+    rdfs:label "Temperature Fault" .
+
+sy1:LeakFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:GridFault ;
+    rdfs:label "Leak Fault" .
+
+sy1:BlockageFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:GridFault ;
+    rdfs:label "Blockage Fault" .
+
+sy1:OverloadFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:DemandFault ;
+    rdfs:label "Overload Fault" .
+
+sy1:UndersupplyFault
+    a owl:Class ;
+    rdfs:subClassOf sy1:DemandFault ;
+    rdfs:label "Undersupply Fault" .
+
+# --- Properties ---
+sy1:hasSeverity
+    a owl:DatatypeProperty ;
+    rdfs:domain sy1:Fault ;
+    rdfs:range xsd:string ;
+    rdfs:label "has severity" ;
+    rdfs:comment "One of: low, medium, high, critical." .
+
+sy1:requiresImmediateAction
+    a owl:DatatypeProperty ;
+    rdfs:domain sy1:Fault ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "requires immediate action" .
+
+sy1:recommendedTool
+    a owl:DatatypeProperty ;
+    rdfs:domain sy1:Fault ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommended tool" ;
+    rdfs:comment "Tool name from TOOL_PERMISSIONS registry." .
+
+sy1:affectsNode
+    a owl:ObjectProperty ;
+    rdfs:domain sy1:Fault ;
+    rdfs:range sy1:GridNode ;
+    rdfs:label "affects node" .
+
+# --- Grid node class ---
+sy1:GridNode
+    a owl:Class ;
+    rdfs:label "Grid Node" .
+
+# --- Fault instances ---
+sy1:HighPressureFault
+    a sy1:PressureFault ;
+    rdfs:label "High Pressure Fault" ;
+    sy1:hasSeverity "high" ;
+    sy1:requiresImmediateAction "true"^^xsd:boolean ;
+    sy1:recommendedTool "isolate_grid_segment" .
+
+sy1:LowPressureFault
+    a sy1:PressureFault ;
+    rdfs:label "Low Pressure Fault" ;
+    sy1:hasSeverity "medium" ;
+    sy1:requiresImmediateAction "false"^^xsd:boolean ;
+    sy1:recommendedTool "set_alert_threshold" .
+
+sy1:PipeLeakFault
+    a sy1:LeakFault ;
+    rdfs:label "Pipe Leak Fault" ;
+    sy1:hasSeverity "critical" ;
+    sy1:requiresImmediateAction "true"^^xsd:boolean ;
+    sy1:recommendedTool "dispatch_maintenance_crew" .
+
+sy1:ReturnTempHighFault
+    a sy1:TemperatureFault ;
+    rdfs:label "Return Temperature High Fault" ;
+    sy1:hasSeverity "medium" ;
+    sy1:requiresImmediateAction "false"^^xsd:boolean ;
+    sy1:recommendedTool "set_alert_threshold" .
+
+sy1:SupplyTempLowFault
+    a sy1:TemperatureFault ;
+    rdfs:label "Supply Temperature Low Fault" ;
+    sy1:hasSeverity "high" ;
+    sy1:requiresImmediateAction "true"^^xsd:boolean ;
+    sy1:recommendedTool "dispatch_maintenance_crew" .
+
+sy1:GridOverloadFault
+    a sy1:OverloadFault ;
+    rdfs:label "Grid Overload Fault" ;
+    sy1:hasSeverity "high" ;
+    sy1:requiresImmediateAction "true"^^xsd:boolean ;
+    sy1:recommendedTool "isolate_grid_segment" .
+
+sy1:DemandSpikeFault
+    a sy1:OverloadFault ;
+    rdfs:label "Demand Spike Fault" ;
+    sy1:hasSeverity "medium" ;
+    sy1:requiresImmediateAction "false"^^xsd:boolean ;
+    sy1:recommendedTool "acknowledge_incident" .
+
+sy1:SensorDropoutFault
+    a sy1:SensorFault ;
+    rdfs:label "Sensor Dropout Fault" ;
+    sy1:hasSeverity "low" ;
+    sy1:requiresImmediateAction "false"^^xsd:boolean ;
+    sy1:recommendedTool "get_node_status" .
+
+sy1:PipeBlockageFault
+    a sy1:BlockageFault ;
+    rdfs:label "Pipe Blockage Fault" ;
+    sy1:hasSeverity "high" ;
+    sy1:requiresImmediateAction "true"^^xsd:boolean ;
+    sy1:recommendedTool "dispatch_maintenance_crew" .
+
+sy1:UndersupplyFaultInstance
+    a sy1:UndersupplyFault ;
+    rdfs:label "Zone Undersupply Fault" ;
+    sy1:hasSeverity "medium" ;
+    sy1:requiresImmediateAction "false"^^xsd:boolean ;
+    sy1:recommendedTool "get_demand_forecast" .
