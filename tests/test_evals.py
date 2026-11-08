@@ -1,4 +1,4 @@
-from src.policy.engine import PolicyEngine, PermissionTier
+from src.policy.engine import PolicyEngine
 
 
 def test_policy_engine_is_deterministic():
@@ -15,7 +15,7 @@ def test_to_dict_has_expected_keys():
     assert set(d.keys()) >= {"tier", "reason"}
 
 
-def test_different_tools_can_have_different_tiers():
+def test_different_tools_have_different_tiers():
     engine = PolicyEngine()
     r = engine.evaluate("get_sensor_reading", {}).tier
     i = engine.evaluate("dispatch_maintenance_crew", {}).tier
