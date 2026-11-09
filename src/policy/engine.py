@@ -81,7 +81,7 @@ class PolicyEngine:
         if self._kill_switch:
             return PolicyDecision(
                 tool_name=tool_name,
-                tier=PermissionTier.READ,
+                tier=TOOL_PERMISSIONS.get(tool_name, PermissionTier.READ),
                 allowed=False,
                 reason="Global kill switch is active. All write operations suspended.",
                 requires_approval=False,

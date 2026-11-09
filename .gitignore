@@ -28,3 +28,5 @@ Thumbs.db
 
 # Test files
 test_api_key.py
+audit_logs/
+.coverage

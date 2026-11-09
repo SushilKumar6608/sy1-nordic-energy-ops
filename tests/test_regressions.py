@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.policy.engine import PolicyEngine
+from src.policy.engine import PermissionTier, PolicyEngine
 from src.tools.executor import ToolExecutionError
 
 
@@ -33,3 +33,12 @@ def test_tool_execution_error_is_raisable_and_carries_payload():
     assert err.retryable is True
     assert err.idempotency_key == "abc"
     assert "upstream timeout" in str(exc_info.value)
+
+
+def test_kill_switch_reports_the_real_tier():
+    decide = PolicyEngine(kill_switch_active=True).evaluate
+    assert decide("get_demand_forecast", {}).tier == PermissionTier.READ
+    assert decide("set_alert_threshold", {}).tier == PermissionTier.REVERSIBLE
+    assert decide("dispatch_maintenance_crew", {}).tier == PermissionTier.IRREVERSIBLE
+    assert decide("get_demand_forecast", {}).allowed is False
+    assert decide("no_such_tool", {}).allowed is False

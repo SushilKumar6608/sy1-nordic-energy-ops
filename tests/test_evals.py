@@ -262,9 +262,8 @@ class TestKillSwitchScenario:
                         "idempotency_key": "k1",
                     },
                     expected_allowed=False,
-                    # Kill switch short-circuits before tier lookup; engine returns "read"
-                    # for all blocked tools. We only assert allowed=False here.
-                    expected_tier="read",
+                    # Kill switch blocks every tool but still reports its real tier.
+                    expected_tier="reversible",
                     expected_requires_approval=False,
                 ),
             ],

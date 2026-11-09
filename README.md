@@ -1,130 +1,108 @@
 # SY1-Gov: Governed District Heating Operations Agent
 
-A production governance layer for the SY1 district heating operations agent. SY1-Gov wraps a six-agent LangGraph pipeline with deterministic policy enforcement, human-in-the-loop approval gates, a tamper-evident audit log, and a full evaluation suite - all offline-testable without API keys.
+A governance layer for the SY1 district heating operations system (a six-agent LangGraph pipeline). It provides a deterministic policy engine, an approval gate for irreversible actions, a hash-chained audit log, an MCP server that exposes policy decisions, and an offline evaluation suite. Everything in the test suite runs without API keys.
+
+**Status:** the governance layer is a working, tested library. It is reachable through the MCP server and the LangGraph approval gate node. It is not yet called from the agent loop itself (`src/agents/energy_ops_agent.py`); see [Known limitations](#known-limitations).
 
 ---
 
 ## What it does
 
-District heating grids need automated monitoring and fault response. The base SY1 system uses an LLM supervisor to coordinate demand forecasting, GNN-based fault localisation, and crew dispatch. SY1-Gov adds a governance shell so the LLM can never execute irreversible actions (crew dispatch, grid isolation, public alerts) without a human operator supplying an explicit approval token.
+District heating grids need automated monitoring and fault response. The base SY1 system uses an LLM supervisor to coordinate demand forecasting, GNN-based fault localisation and crew dispatch. SY1-Gov decides, in plain Python, whether a requested tool call may run.
 
-**Core guarantees:**
+**Policy tiers** (`src/policy/engine.py`, ten registered tools):
 
-- READ tools execute freely, with no audit overhead
-- REVERSIBLE tools (threshold updates, alert configs) execute with full audit logging
-- IRREVERSIBLE tools (crew dispatch, grid isolation, public alerts) are blocked until a human operator approves via LangGraph interrupt
-- Kill switch blocks all writes instantly, with a single environment variable
-- Policy enforcement is pure Python - no LLM calls, no network, no prompt to bypass
+- READ tools (demand forecast, anomaly summary, grid topology, node status, fault ontology, RAG retrieval) are allowed.
+- REVERSIBLE tools (`set_alert_threshold`, `acknowledge_incident`) are allowed without human approval.
+- IRREVERSIBLE tools (`dispatch_maintenance_crew`, `isolate_grid_segment`) are blocked until an approval token is supplied through the approval gate.
+- Unknown tools raise `ValueError` (fail closed).
+- The kill switch (`SY1_KILL_SWITCH=1`) blocks every tool call, reads included.
+- Policy decisions are a dictionary lookup in pure Python: no LLM call, no network, no prompt to bypass.
 
 ---
 
 ## Architecture
 
 ```
-External callers (MCP / operator dashboard)
+External callers (MCP clients)
     |  JSON-RPC 2.0 over stdio
     v
-GovernedMCPServer  (src/mcp/server.py)
+GovernedMCPServer  (src/mcp/server.py)       authorises tool calls, does not run them
     |
     v
 PolicyEngine  (src/policy/engine.py)
-    |-- READ        -> allowed, no audit
-    |-- REVERSIBLE  -> allowed + audit entry written
-    |-- IRREVERSIBLE -> blocked, routed to approval gate
-    |
-    +---> AuditLog  (src/policy/audit.py)
-    |     SHA-256 hash-chained JSONL, sensitive fields redacted
+    |-- READ         -> allowed
+    |-- REVERSIBLE   -> allowed
+    |-- IRREVERSIBLE -> blocked, approval required
+    |-- kill switch  -> everything blocked
+
+LangGraph graph (supervisor -> approval_gate -> tool executor)
     |
     +---> ApprovalGateNode  (src/tools/approval_gate.py)
-          LangGraph interrupt_before node
-          Waits for: graph.invoke(Command(resume={"approval_token": "..."}))
+    |       compiled with interrupt_before=["approval_gate"]
+    |       checks the policy tier, validates the token, writes audit entries
+    |
+    +---> AuditLog  (src/policy/audit.py)
+    |       SHA-256 hash-chained JSONL, sensitive fields redacted
+    |
+    +---> ToolExecutor  (src/tools/executor.py)
+            input validation, retries, idempotency keys, typed errors
 ```
 
-See [docs/architecture.md](docs/architecture.md) for the full component diagram and data-flow walkthrough.
+See [docs/architecture.md](docs/architecture.md) for the component diagram and data flows.
 
 ---
 
 ## Project structure
 
 ```
-sy1-nordic-energy-ops/
-|-- src/
-|   |-- policy/
-|   |   |-- engine.py          # PolicyEngine: tier registry + kill switch
-|   |   |-- contracts.py       # Pydantic input validators
-|   |   `-- audit.py           # Append-only hash-chained audit log
-|   |-- tools/
-|   |   `-- approval_gate.py   # LangGraph interrupt approval gate
-|   |-- evals/
-|   |   |-- trajectory_eval.py # Offline trajectory scoring harness
-|   |   |-- judge.py           # LLM-as-judge (skipped in CI without key)
-|   |   `-- budget_guard.py    # Per-session token/USD cap
-|   |-- tracing/
-|   |   `-- langfuse_tracer.py # Optional Langfuse wrapper (no-op if absent)
-|   `-- mcp/
-|       `-- server.py          # JSON-RPC MCP server over stdio
-|-- evals/
-|   `-- promptfoo/
-|       |-- injection_suite.yaml  # 25 adversarial test cases
-|       `-- policy_provider.py    # Offline promptfoo provider
-|-- tests/                     # 169 offline tests, 3 live-API tests
-|-- docs/
-|   |-- architecture.md
-|   |-- threat_model.md
-|   `-- adr/                   # Architecture Decision Records
-|-- logs/
-|   `-- audit.jsonl            # Runtime audit log (gitignored)
-`-- pyproject.toml
+src/
+|-- policy/      engine.py (tiers, kill switch), contracts.py (Pydantic models), audit.py
+|-- tools/       approval_gate.py (LangGraph node), executor.py
+|-- mcp/         server.py (JSON-RPC MCP server over stdio)
+|-- evals/       trajectory_eval.py, judge.py (LLM-as-judge), budget_guard.py (token and USD caps)
+|-- tracing/     langfuse_tracer.py (no-op when Langfuse keys are absent)
+|-- routing/     model_router.py (model tiers and cost estimates)
+|-- knowledge/   ontology_query.py, fault_ontology.ttl
+|-- agents/      energy_ops_agent.py (the SY1 supervisor pipeline)
+|-- anomaly/  forecasting/  gnn/  ingestion/  rag/  api/  dashboard/   (SY1 pipeline components)
+evals/promptfoo/ injection_suite.yaml, policy_provider.py
+tests/           offline test suite
+docs/            architecture.md, threat_model.md, adr/
 ```
 
 ---
 
 ## Setup
 
-**Requirements:** Python 3.11+, Anaconda (Windows) or venv (Linux/macOS)
+Python 3.11.
 
 ```
-conda create -p D:\conda-envs\sy1-gov python=3.11
-conda activate D:\conda-envs\sy1-gov
-pip install -e ".[dev]" --break-system-packages
+conda create -n sy1-gov python=3.11
+conda activate sy1-gov
+pip install -r requirements-ci.txt
 ```
 
 **Environment variables (all optional):**
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `ANTHROPIC_API_KEY` | Enables live LLM-as-judge tests | (live tests skipped) |
-| `LANGFUSE_SECRET_KEY` | Enables Langfuse tracing | (tracing disabled) |
-| `LANGFUSE_PUBLIC_KEY` | Enables Langfuse tracing | (tracing disabled) |
-| `SY1_KILL_SWITCH` | Set to `1` to block all writes | `0` |
-| `SY1_MAX_TOKENS` | Per-session token cap | `100000` |
-| `SY1_MAX_COST_USD` | Per-session cost cap | `1.00` |
+| `ANTHROPIC_API_KEY` | Enables the live LLM-as-judge tests | live tests skipped |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | Enables Langfuse tracing | tracing disabled |
+| `SY1_KILL_SWITCH` | Set to `1` to block every tool call | `0` |
+| `SY1_MAX_COST_USD` | Per-session cost cap in USD | `1.00` |
 
 ---
 
 ## Running the tests
 
-All 169 offline tests pass without any API keys:
-
 ```
-pytest tests/ -v
+pytest tests/ -m "not live_api"
 ```
 
-Expected output:
+177 offline tests pass without any API key. Three more tests call the Anthropic API (LLM-as-judge) and are marked `live_api`; CI deselects them. Coverage of the governance packages (`policy`, `tools`, `evals`, `mcp`, `tracing`) is about 74%, and CI enforces a 70% floor on that scope. The weak spots are `src/mcp/server.py` (not covered by unit tests; the demos below were run by hand) and `src/tools/executor.py` (about 28%; the retry and idempotency paths are untested).
 
-```
-tests/test_policy_engine.py        20 passed
-tests/test_policy_contracts.py     26 passed
-tests/test_audit.py                21 passed
-tests/test_approval_gate.py        18 passed
-tests/test_evals.py                29 passed, 3 skipped
-tests/test_budget_guard.py         37 passed
-tests/test_tracing.py              20 passed
-
-169 passed, 3 skipped in X.XXs
-```
-
-The 3 skipped tests require `ANTHROPIC_API_KEY` and are marked `@pytest.mark.live_api`. They score agent responses using LLM-as-judge and are excluded from CI.
+The approval gate is tested end to end inside a real LangGraph graph (`tests/test_approval_gate_e2e.py`): the graph pauses before the gate, resuming without a token does not approve, resuming with a token does, and the token is redacted in the audit log.
 
 ---
 
@@ -134,7 +112,7 @@ The 3 skipped tests require `ANTHROPIC_API_KEY` and are marked `@pytest.mark.liv
 python -m src.mcp.server
 ```
 
-The server reads JSON-RPC 2.0 from stdin and writes responses to stdout. Add it to Claude Desktop's `claude_desktop_config.json`:
+The server reads JSON-RPC 2.0 from stdin and writes responses to stdout (banner lines go to stderr). Example Claude Desktop configuration:
 
 ```json
 {
@@ -142,105 +120,104 @@ The server reads JSON-RPC 2.0 from stdin and writes responses to stdout. Add it 
     "sy1-gov": {
       "command": "python",
       "args": ["-m", "src.mcp.server"],
-      "cwd": "D:\\Egna projekt\\sy1-nordic-energy-ops",
-      "env": {
-        "SY1_KILL_SWITCH": "0"
-      }
+      "cwd": "/path/to/sy1-nordic-energy-ops",
+      "env": { "SY1_KILL_SWITCH": "0" }
     }
   }
 }
 ```
 
-To activate the kill switch without restarting the server, set `SY1_KILL_SWITCH=1` and restart the process. All REVERSIBLE and IRREVERSIBLE tool calls will return an error until it is cleared.
+The kill switch is read when the server starts. To activate it, set `SY1_KILL_SWITCH=1` and restart the process.
 
 ---
 
-## Demo: policy decisions in action
+## Demo: policy decisions
 
-**READ tool - passes through immediately:**
+Real output (stderr banners omitted). Linux and macOS:
+
+**READ tool, allowed:**
 
 ```
 $ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_demand_forecast","arguments":{"node_id":3,"horizon_hours":24}}}' | python -m src.mcp.server
-
-{"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "Tool get_demand_forecast executed successfully"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "{\"status\": \"ok\", \"tool_name\": \"get_demand_forecast\", \"message\": \"Tool 'get_demand_forecast' authorised by PolicyEngine.\"}"}], "isError": false}}
 ```
 
-**IRREVERSIBLE tool - blocked, approval required:**
+**IRREVERSIBLE tool, blocked pending approval:**
 
 ```
 $ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"dispatch_maintenance_crew","arguments":{"crew_id":"C-04","location":"node_7","justification":"GNN flagged 3-sigma anomaly"}}}' | python -m src.mcp.server
-
-{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "IRREVERSIBLE action requires human approval. Use the LangGraph approval gate to supply an approval token."}], "isError": true}}
+{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "{\"blocked\": true, \"tier\": \"irreversible\", \"requires_approval\": true, \"reason\": \"Tool 'dispatch_maintenance_crew' is IRREVERSIBLE and requires human approval. Submit this action through the approval gate.\"}"}], "isError": true}}
 ```
 
-**Kill switch active - all writes blocked:**
+**Kill switch active, everything blocked:**
 
 ```
-$ SY1_KILL_SWITCH=1 echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"set_alert_threshold","arguments":{"node_id":5,"threshold_mw":150,"alert_type":"overload"}}}' | python -m src.mcp.server
-
-{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "Kill switch is active. All write operations are blocked."}], "isError": true}}
+$ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"set_alert_threshold","arguments":{"node_id":5,"threshold_mw":150,"alert_type":"overload"}}}' | SY1_KILL_SWITCH=1 python -m src.mcp.server
+{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "{\"blocked\": true, \"tier\": \"reversible\", \"requires_approval\": false, \"reason\": \"Global kill switch is active. All write operations suspended.\"}"}], "isError": true}}
 ```
+
+On Windows `cmd`, set the variable on its own first: `set "SY1_KILL_SWITCH=1"`.
 
 ---
 
 ## Approval gate walkthrough
 
-When an IRREVERSIBLE action is detected, the LangGraph supervisor routes to `approval_gate`. The graph pauses. The operator resumes it with a token:
+`interrupt_before` pauses the graph before the gate node runs. `Command(resume=...)` only feeds `interrupt()` calls, so it does not reach this node. The operator supplies the token by writing it into the graph state and resuming with `None`:
 
 ```python
-from langgraph.types import Command
-from src.tools.approval_gate import build_approval_graph
-
-graph = build_approval_graph()
 config = {"configurable": {"thread_id": "session-001"}}
+graph.invoke({}, config)              # supervisor requests dispatch_maintenance_crew; graph pauses
 
-# Supervisor has requested dispatch_maintenance_crew - graph is now paused
-# Operator reviews the pending action from the checkpoint store, then:
-
-result = graph.invoke(
-    Command(resume={"approval_token": "tok-operator-abc123"}),
-    config=config
+pending = dict(graph.get_state(config).values["pending_approval"])
+graph.update_state(
+    config, {"pending_approval": {**pending, "approval_token": "tok-operator-abc123"}}
 )
-# Audit entry: outcome="APPROVED", actor="operator", approval_token_present=True
+graph.invoke(None, config)            # gate validates the token, writes an APPROVED audit entry
 ```
+
+A runnable version, with the graph wiring, is in `tests/test_approval_gate_e2e.py`. Without a token the gate leaves `approved` false and the downstream executor does not act.
 
 ---
 
 ## Evaluation suite
 
-**Trajectory evaluator** - offline, no API key needed:
+These are policy-level evaluations. They test the decisions of `PolicyEngine`, not the behaviour of an LLM.
 
-```
-python -m src.evals.trajectory_eval
-```
-
-Runs scripted tool-call sequences through PolicyEngine and reports pass/fail per step.
-
-**Promptfoo injection suite** - offline, 25 adversarial cases:
-
-```
-promptfoo eval --config evals/promptfoo/injection_suite.yaml
-```
-
-**LLM-as-judge** - requires `ANTHROPIC_API_KEY`:
-
-```
-pytest tests/test_evals.py -m live_api -v
-```
+- **Trajectory scenarios** (`src/evals/trajectory_eval.py`): scripted sequences of tool calls scored against the expected policy outcome, including kill-switch scenarios. Run them with `pytest tests/test_evals.py -v`.
+- **Promptfoo injection suite** (`evals/promptfoo/injection_suite.yaml`): adversarial strings in tool names and arguments, run through `policy_provider.py` against `PolicyEngine`:
+  ```
+  promptfoo eval --config evals/promptfoo/injection_suite.yaml
+  ```
+  A pass rate has not been recorded in this repository yet.
+- **LLM-as-judge** (`src/evals/judge.py`): scores agent responses on safety and helpfulness. Needs `ANTHROPIC_API_KEY`:
+  ```
+  pytest tests/test_evals.py -m live_api -v
+  ```
 
 ---
 
 ## Security
 
-See [docs/threat_model.md](docs/threat_model.md) for the full threat catalogue. Key properties:
+See [docs/threat_model.md](docs/threat_model.md) for the threat catalogue. Properties that the code and tests support:
 
-- Prompt injection has no effect on tier decisions (pure Python dict lookup)
-- Kill switch cannot be deactivated via tool input fields
-- Unknown tools fail closed with `ValueError`
-- Approval tokens are redacted in the audit log
-- The audit log is SHA-256 hash-chained; tampering is detectable offline
+- Tier decisions are a dictionary lookup, so prompt injection in tool arguments cannot change them.
+- No tool input can deactivate the kill switch.
+- Unknown tools fail closed with `ValueError`.
+- Approval tokens are redacted in the audit log.
+- The audit log is SHA-256 hash-chained, and `verify_chain_integrity()` detects tampering offline.
 
-**Known gap:** approval tokens are not currently bound to a specific `trace_id`. Token binding is on the roadmap (see threat model T5).
+---
+
+## Known limitations
+
+- **Not wired into the agent loop.** `energy_ops_agent.py` does not call the policy engine. Today the governance layer is exercised through the MCP server and the approval gate node, not by the SY1 supervisor itself.
+- **The MCP server authorises, it does not execute.** It returns the policy decision for a tool call; running the tool is the job of `ToolExecutor`.
+- **The gate does not authenticate the approver.** It accepts any non-empty token and does not bind the token to a `trace_id` (threat model T5). Identity and token verification are not implemented.
+- **Evaluations are policy-level.** Trajectories are scripted tool-call sequences and the injection cases are adversarial inputs to a lookup, not recorded agent runs or an LLM under attack.
+- **No promptfoo pass rate, Ragas or Langfuse results recorded yet.**
+- **Executor paths untested.** Retries, idempotency and typed errors exist in `executor.py` but are only partly covered by tests.
+- **The audit log is a local file** (`audit_logs/audit.jsonl`), not a durable or shared store.
+- **Lint and type checks run on the governance packages** (`policy`, `tools`, `evals`, `mcp`, `tracing`); the SY1 pipeline code has known lint debt.
 
 ---
 
@@ -249,5 +226,5 @@ See [docs/threat_model.md](docs/threat_model.md) for the full threat catalogue. 
 | ADR | Decision |
 |-----|---------|
 | [ADR-001](docs/adr/001-python-only-policy-engine.md) | Policy enforcement in pure Python, never in a prompt |
-| [ADR-002](docs/adr/002-langgraph-interrupt-approval-gate.md) | LangGraph interrupt node as the approval gate |
+| [ADR-002](docs/adr/002-langgraph-interrupt-approval-gate.md) | LangGraph `interrupt_before` node as the approval gate |
 | [ADR-003](docs/adr/003-append-only-hash-chained-audit-log.md) | Append-only SHA-256 hash-chained audit log |
