@@ -1,118 +1,82 @@
 """
-Rule-based model router for SY1-Gov.
+Model router for SY1-Gov.
 
-Selects between claude-haiku-4-5 (fast, cheap) and claude-sonnet-4-5
-(capable, slower) based on tool tier and input complexity.
-No LLM calls - pure deterministic Python.
+Routes agent calls between:
+  - claude-haiku-5-5   : fast, cheap - for read queries and status checks
+  - claude-sonnet-4-6  : capable    - for diagnosis, recommendation, supervision
 
-Routing rules:
-  READ tools with simple inputs       -> Haiku
-  READ tools with complex inputs      -> Sonnet
-  REVERSIBLE tools                    -> Sonnet
-  IRREVERSIBLE tools                  -> Sonnet (always, non-negotiable)
-  Kill switch active                  -> Haiku (read-only audit only)
+Routing logic (Phase 2.5 - rule-based):
+  HAIKU  : demand agent, RAG simple retrieval, node status reads
+  SONNET : diagnosis agent, recommendation agent, supervisor agent, complex RAG (HyDE)
+
+Phase 3 upgrade path: replace rule-based classifier with a small trained classifier
+on query complexity features (token count, intent type, requires_tools).
 """
 
-from dataclasses import dataclass
-from typing import Any
+from __future__ import annotations
 
-from src.policy.engine import PermissionTier
-
-MODEL_HAIKU = "claude-haiku-4-5"
-MODEL_SONNET = "claude-sonnet-4-5"
-
-# Input complexity threshold: dicts with more keys than this are "complex"
-COMPLEXITY_KEY_THRESHOLD = 3
-
-# Input complexity threshold: string values longer than this are "complex"
-COMPLEXITY_STR_THRESHOLD = 200
+from enum import Enum
 
 
-@dataclass
-class RoutingDecision:
-    model: str
-    tier: PermissionTier
-    reason: str
-    input_complexity: str  # "simple" or "complex"
+class ModelTier(str, Enum):
+    HAIKU = "claude-haiku-5-5"
+    SONNET = "claude-sonnet-4-6"
 
 
-def _assess_complexity(inputs: dict[str, Any]) -> str:
-    """Return 'simple' or 'complex' based on input size and depth."""
-    if len(inputs) > COMPLEXITY_KEY_THRESHOLD:
-        return "complex"
-    for value in inputs.values():
-        if isinstance(value, str) and len(value) > COMPLEXITY_STR_THRESHOLD:
-            return "complex"
-        if isinstance(value, (dict, list)) and len(value) > 2:
-            return "complex"
-    return "simple"
+# Agent-to-model mapping (rule-based)
+_AGENT_MODEL_MAP: dict[str, ModelTier] = {
+    "demand_agent": ModelTier.HAIKU,
+    "rag_retrieval_agent": ModelTier.HAIKU,  # simple retrieval; HyDE uses SONNET
+    "rag_hyde_agent": ModelTier.SONNET,  # HyDE needs stronger generation
+    "gnn_localisation_agent": ModelTier.HAIKU,  # structured output, low complexity
+    "diagnosis_agent": ModelTier.SONNET,
+    "recommendation_agent": ModelTier.SONNET,
+    "supervisor_agent": ModelTier.SONNET,
+}
+
+# Cost per 1M tokens (USD) - for Langfuse cost tracking
+# Update if Anthropic pricing changes
+MODEL_COST_PER_1M: dict[str, dict[str, float]] = {
+    "claude-haiku-5-5": {"input": 0.80, "output": 4.00},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+}
 
 
-def route(
-    tool_name: str,
-    tier: PermissionTier,
-    inputs: dict[str, Any],
-    kill_switch_active: bool = False,
-) -> RoutingDecision:
+class ModelRouter:
     """
-    Return a RoutingDecision for the given tool call.
-
-    Args:
-        tool_name: The name of the tool being called.
-        tier: The PermissionTier from PolicyEngine.
-        inputs: The raw inputs dict for the tool call.
-        kill_switch_active: If True, use Haiku - writes are blocked anyway.
+    Returns the appropriate model for a given agent and query.
     """
-    complexity = _assess_complexity(inputs)
 
-    if kill_switch_active:
-        return RoutingDecision(
-            model=MODEL_HAIKU,
-            tier=tier,
-            reason="Kill switch active - all writes blocked, Haiku sufficient for audit.",
-            input_complexity=complexity,
+    def route(self, agent_name: str, query: str | None = None) -> ModelTier:
+        """
+        Rule-based routing by agent name.
+        query is reserved for the future classifier upgrade.
+        """
+        if agent_name not in _AGENT_MODEL_MAP:
+            # Unknown agent - default to Sonnet (safe, capable)
+            return ModelTier.SONNET
+        return _AGENT_MODEL_MAP[agent_name]
+
+    def estimate_cost_usd(
+        self,
+        model: ModelTier,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> float:
+        """
+        Estimate cost in USD for a single call.
+        Used by the Langfuse tracer for per-agent cost tracking.
+        """
+        pricing = MODEL_COST_PER_1M.get(
+            model.value, MODEL_COST_PER_1M["claude-sonnet-4-6"]
+        )
+        return (
+            input_tokens / 1_000_000 * pricing["input"]
+            + output_tokens / 1_000_000 * pricing["output"]
         )
 
-    if tier == PermissionTier.IRREVERSIBLE:
-        return RoutingDecision(
-            model=MODEL_SONNET,
-            tier=tier,
-            reason=(
-                f"Irreversible tool '{tool_name}' always routes to Sonnet "
-                "for maximum reasoning quality before human approval."
-            ),
-            input_complexity=complexity,
-        )
-
-    if tier == PermissionTier.REVERSIBLE:
-        return RoutingDecision(
-            model=MODEL_SONNET,
-            tier=tier,
-            reason=(
-                f"Reversible write tool '{tool_name}' routes to Sonnet "
-                "to minimise risk of incorrect write operations."
-            ),
-            input_complexity=complexity,
-        )
-
-    # READ tier - route by complexity
-    if complexity == "complex":
-        return RoutingDecision(
-            model=MODEL_SONNET,
-            tier=tier,
-            reason=(
-                f"Read tool '{tool_name}' with complex inputs routes to Sonnet "
-                "for higher accuracy."
-            ),
-            input_complexity=complexity,
-        )
-
-    return RoutingDecision(
-        model=MODEL_HAIKU,
-        tier=tier,
-        reason=(
-            f"Read tool '{tool_name}' with simple inputs routes to Haiku "
-            "for speed and cost efficiency."
-        ),
-        input_complexity=complexity,
-    )
+    @staticmethod
+    def get_model_id(agent_name: str) -> str:
+        """Convenience: return the model ID string directly."""
+        router = ModelRouter()
+        return router.route(agent_name).value

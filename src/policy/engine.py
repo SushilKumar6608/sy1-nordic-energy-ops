@@ -130,3 +130,7 @@ class PolicyEngine:
 
     def deactivate_kill_switch(self) -> None:
         self._kill_switch = False
+
+    @property
+    def kill_switch_active(self) -> bool:
+        return self._kill_switch
