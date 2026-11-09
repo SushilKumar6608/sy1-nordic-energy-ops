@@ -91,7 +91,7 @@ Sensitive fields (`approval_token`, `password`, `secret`, `api_key`) are redacte
 A LangGraph interrupt node wired into the graph with `interrupt_before=["approval_gate"]`. When the supervisor wants to invoke an IRREVERSIBLE tool:
 
 1. It places a `PendingApproval` record in graph state and routes to `approval_gate`.
-2. LangGraph pauses. The human operator sees the pending action and supplies a token via `Command(resume={"approval_token": "..."})`.
+2. LangGraph pauses. The human operator sees the pending action and supplies a token by writing it into the graph state (`graph.update_state`) and resuming with `graph.invoke(None, config)`.
 3. The gate validates the token (non-empty), logs `APPROVED`, and lets execution continue.
 
 The gate never executes the tool itself - it only validates and logs.
@@ -184,7 +184,7 @@ LangGraph routes to approval_gate node
 graph.compile(interrupt_before=["approval_gate"])
     |-- PAUSED - waiting for human
     v
-Human operator: graph.invoke(Command(resume={"approval_token": "tok-abc123"}))
+Human operator: graph.update_state(config, token "tok-abc123"); graph.invoke(None, config)
     v
 ApprovalGateNode validates token
     v

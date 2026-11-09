@@ -24,11 +24,16 @@ Usage in a LangGraph graph:
     # Wire the interrupt:
     graph = builder.compile(interrupt_before=["approval_gate"])
 
-    # Resume with human input:
-    graph.invoke(
-        Command(resume={"approval_token": "human-supplied-token"}),
-        config={"configurable": {"thread_id": "..."}},
+    # Resume with human input. interrupt_before pauses BEFORE the node runs and
+    # Command(resume=...) only feeds interrupt() calls, so the operator writes
+    # the token into the graph state and resumes with invoke(None):
+    config = {"configurable": {"thread_id": "..."}}
+    pending = dict(graph.get_state(config).values["pending_approval"])
+    graph.update_state(
+        config,
+        {"pending_approval": {**pending, "approval_token": "human-supplied-token"}},
     )
+    graph.invoke(None, config)
 """
 
 from __future__ import annotations
@@ -83,8 +88,9 @@ class ApprovalGateNode:
     The graph must be compiled with:
         graph.compile(interrupt_before=["approval_gate"])
 
-    so that LangGraph pauses execution at this node and waits for
-    graph.invoke(Command(resume={...})) to supply the approval token.
+    so that LangGraph pauses before this node runs. The operator supplies the
+    approval token by writing it into state["pending_approval"] with
+    graph.update_state(...) and resumes with graph.invoke(None, config).
     """
 
     def __init__(self, policy_engine: Optional[PolicyEngine] = None):
@@ -94,12 +100,12 @@ class ApprovalGateNode:
         """
         Called by LangGraph when the graph reaches this node.
 
-        On first entry (no approval token yet):
+        With no approval token in state (graph resumed without approval):
         - Validates the pending tool call against the policy engine
-        - Logs a PENDING_APPROVAL audit entry
-        - Returns state unchanged (LangGraph will interrupt here)
+        - Logs a PENDING_HUMAN_APPROVAL audit entry
+        - Returns state unchanged, so the executor sees approved=False
 
-        On resume (approval token supplied via Command(resume=...)):
+        With an approval token written into state (via update_state):
         - Validates the token is present
         - Logs an APPROVED or DENIED audit entry
         - Sets approved=True so the downstream executor node can proceed
@@ -157,7 +163,7 @@ class ApprovalGateNode:
             }
 
         if approval_token is None:
-            # First entry: log pending, let LangGraph interrupt
+            # No token yet: log pending and leave approved=False
             write_audit_entry(
                 actor="approval_gate",
                 tool_name=tool_name,
@@ -166,8 +172,8 @@ class ApprovalGateNode:
                 trace_id=trace_id,
                 outcome="PENDING_HUMAN_APPROVAL",
             )
-            # State is returned as-is; LangGraph will pause here because
-            # this node is listed in interrupt_before=["approval_gate"]
+            # State is returned as-is. The graph pauses before this node (see
+            # interrupt_before); if resumed without a token, approved stays False.
             return state
 
         # Resumed with token: validate it is non-empty
