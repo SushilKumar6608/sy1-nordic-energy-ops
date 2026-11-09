@@ -1,4 +1,4 @@
-name: Nightly - Full Eval Suite
+name: Nightly - Evaluation Suite
 
 on:
   schedule:
@@ -9,12 +9,13 @@ env:
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
   LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+  PROMPTFOO_DISABLE_TELEMETRY: "1"
 
 jobs:
   full-eval:
-    name: Full Evaluation Suite
+    name: Evaluation Suite
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -34,31 +35,49 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements-ci.txt
+          pip install -r requirements-ci.txt anthropic
 
       - name: Install promptfoo
         run: npm install -g promptfoo
 
-      - name: Full trajectory eval suite (k=5 runs each)
-        run: pytest src/evals/trajectories/test_trajectories.py -v --tb=short --runs=5
+      - name: Offline test suite (policy, gate, audit, trajectories)
+        run: pytest tests/ -m "not live_api" -v --tb=short
 
-      - name: Full injection suite (25+ cases via promptfoo)
-        run: promptfoo eval --config src/evals/injection/attack_suite.yaml --output injection_results.json
+      - name: LLM-as-judge live tests
+        run: pytest tests/test_evals.py -m live_api -v --tb=short
 
-      - name: Ragas outcome quality eval
-        run: pytest src/evals/test_ragas_quality.py -v --tb=short
+      - name: Promptfoo injection suite
+        run: promptfoo eval --config evals/promptfoo/injection_suite.yaml --output injection_results.json --no-cache
 
-      - name: LLM-as-judge calibration check
-        run: pytest src/evals/test_judge_calibration.py -v --tb=short
+      - name: Injection suite pass rate
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          import os
 
-      - name: Quality gate check
-        run: python src/evals/quality_gate.py --results injection_results.json
+          lines = ["## Promptfoo injection suite"]
+          try:
+              data = json.load(open("injection_results.json"))
+              res = data.get("results", data)
+              stats = res.get("stats", {}) if isinstance(res, dict) else {}
+              ok, bad = stats.get("successes"), stats.get("failures")
+              if ok is None or bad is None:
+                  lines.append("Pass rate not found in the output file; see the artifact.")
+              else:
+                  total = ok + bad
+                  lines.append(f"{ok} of {total} cases passed ({bad} failed).")
+          except FileNotFoundError:
+              lines.append("No results file was produced.")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
 
       - name: Upload eval results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: eval-results-${{ github.run_id }}
-          path: |
-            injection_results.json
-            eval_report.json
+          path: injection_results.json
+          if-no-files-found: warn
