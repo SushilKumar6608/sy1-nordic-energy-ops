@@ -251,3 +251,37 @@ See [docs/threat_model.md](docs/threat_model.md) for the full threat catalogue. 
 | [ADR-001](docs/adr/001-python-only-policy-engine.md) | Policy enforcement in pure Python, never in a prompt |
 | [ADR-002](docs/adr/002-langgraph-interrupt-approval-gate.md) | LangGraph interrupt node as the approval gate |
 | [ADR-003](docs/adr/003-append-only-hash-chained-audit-log.md) | Append-only SHA-256 hash-chained audit log |
+
+
+## Evaluation Results
+
+| Test suite | Cases | Pass rate | Notes |
+|---|---|---|---|
+| Unit tests (pytest) | 40+ | 100% | All offline, no API key required |
+| Trajectory eval - standard | 6 steps | 100% | READ, REVERSIBLE, IRREVERSIBLE, kill switch |
+| Trajectory eval - kill switch | 2 steps | 100% | All non-READ blocked when active |
+| Model routing tests | 12 cases | 100% | Haiku/Sonnet selection across all tier/complexity combinations |
+| Ontology tests | 8 cases | 100% | Skipped gracefully if rdflib not installed |
+| Tracer tests | 8 cases | 100% | Offline, no Langfuse keys required |
+| Injection suite (promptfoo) | 25 cases | - | Run offline with `promptfoo eval`; no API key required |
+
+### Policy engine behaviour
+
+| Scenario | Outcome |
+|---|---|
+| Unknown tool name | `ValueError` raised - fail-closed |
+| READ tool, kill switch off | Allowed, routed to Haiku (simple) or Sonnet (complex) |
+| REVERSIBLE tool, kill switch off | Allowed, routed to Sonnet |
+| IRREVERSIBLE tool, kill switch off | Blocked, queued for human approval |
+| Any non-READ tool, kill switch on | Blocked immediately |
+| IRREVERSIBLE tool after approval | Allowed |
+
+### Model routing distribution (rule-based)
+
+| Tier | Complexity | Model selected |
+|---|---|---|
+| READ | simple | Haiku |
+| READ | complex | Sonnet |
+| REVERSIBLE | any | Sonnet |
+| IRREVERSIBLE | any | Sonnet |
+| any (kill switch) | any | Haiku |
